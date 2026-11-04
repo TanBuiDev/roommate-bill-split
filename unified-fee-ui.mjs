@@ -1,5 +1,6 @@
 import { METHODS } from "./fee-engine.mjs";
 import { calculateSelection, serializeSelection, hydrateSelection, getGroupMethod, applyGroupRule } from "./unified-billing-core.mjs";
+import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
 
 /* Unified monthly billing editor. All mutations are explicit user actions. */
 const BUILTINS = [
@@ -29,7 +30,7 @@ const uuid=()=>crypto.randomUUID();
 
 export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved,onMonthChange,onHistoryChanged}){
  let apt=null,owner=false,residents=[],periods=[],templates=[],payments=[];
- let month=nowMonth(),groups=[],selectedType="electric",editing=null,dirty=false,pending=false,loaded=false;
+ let month=nowMonth(),groups=[],selectedType="electric",editing=null,workingGroup=null,originalWorking="",dirty=false,pending=false,loaded=false;
  let reloadSaved=false,shown=new Set(),newType={name:"",fees:[{name:"",method:"days"}]},typeBeingEdited=null;
  const active=()=>apt&&getContext().apt?.id===apt;
  const countFees=()=>groups.reduce((n,g)=>n+g.fees.length,0);
@@ -94,37 +95,50 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     <button id="ub-copy-last" class="button secondary ub-copy-previous" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-last-label">Use last month's template</span></button>
    </div></div>
   <div class="ub-add-row">
-   <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
-   <button type="button" id="ub-add" class="button primary">Add bill</button>
+   <button type="button" id="ub-add" class="button primary"><span class="ub-add-plus" aria-hidden="true">+</span><span id="ub-add-label">Add bill</span></button>
   </div>
-  <div class="ub-category-actions">
-   <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
-   <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
-   <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
-  </div>
-  <section id="ub-form" class="ub-form hidden" aria-labelledby="ub-form-title">
-   <div class="ub-form-head"><h4 id="ub-form-title">Bill details</h4><button id="ub-cancel" class="mini" type="button">Close</button></div>
-   <div id="ub-form-items"></div>
-   <div class="ub-form-total"><span id="ub-form-total-label">Bill subtotal</span><strong id="ub-form-amount">0 ₫</strong></div>
-   <button type="button" id="ub-done" class="button primary">Add to summary</button>
-  </section>
+  <dialog id="ub-bill-dialog" class="ub-bill-dialog" aria-labelledby="ub-modal-heading">
+   <div class="ub-bill-dialog-inner">
+    <div class="ub-dialog-head">
+     <h3 id="ub-modal-heading">Add bill</h3>
+     <button id="ub-modal-close" class="mini" type="button" aria-label="Close">×</button>
+    </div>
+    <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
+    <div class="ub-category-actions">
+     <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
+     <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
+     <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
+    </div>
+    <section id="ub-form" class="ub-form hidden" aria-labelledby="ub-form-title">
+     <h4 id="ub-form-title">Bill details</h4>
+     <div id="ub-form-items"></div>
+     <div class="ub-form-total"><span id="ub-form-total-label">Bill subtotal</span><strong id="ub-form-amount">0 ₫</strong></div>
+     <p class="summary-error" id="ub-bill-error" role="alert"></p>
+    </section>
+    <div class="ub-bill-footer">
+     <button id="ub-cancel" class="button secondary" type="button">Cancel</button>
+     <button type="button" id="ub-done" class="button primary">Add to summary</button>
+    </div>
+   </div>
+  </dialog>
   <section class="ub-summary" aria-labelledby="ub-summary-title">
    <div class="ub-summary-head"><h4 id="ub-summary-title">Bills in this period</h4><span id="ub-count" class="tag">0</span></div>
    <p class="muted" id="ub-empty">No bills yet. Choose a bill type above to begin.</p>
    <div id="ub-list" class="ub-list"></div>
-   <div class="ub-summary-total">
-    <div><span id="ub-selected-label">Selected total</span><strong id="ub-total">0 ₫</strong></div>
-    <div><span id="ub-entered-label">All entered bills</span><strong id="ub-entered">0 ₫</strong></div>
-   </div>
    <section class="fee-breakdown" aria-labelledby="ub-people-heading">
-    <h4 id="ub-people-heading">Per-resident breakdown</h4>
+    <div class="ub-breakdown-head">
+     <h4 id="ub-people-heading">Per-resident breakdown</h4>
+     <div class="ub-total-in-breakdown">
+      <span id="ub-selected-label">Total amount</span><strong id="ub-total">0 ₫</strong>
+     </div>
+    </div>
     <div id="ub-people"></div>
    </section>
    <p class="summary-error" id="ub-error" role="alert"></p>
-   <div class="ub-actions">
-    <button id="ub-save" class="button primary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V4M7 21v-8h10v8"/></svg><span id="ub-save-label">Save monthly settlement</span></button>
-    <button id="ub-copy-result" class="button secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-result-label">Copy bill as message</span></button>
-    <button id="ub-share" class="button secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.3 11 7.4-4.7m-7.4 6.7 7.4 4.7"/></svg><span id="ub-share-label">Share breakdown</span></button>
+   <div class="ub-actions" role="group" aria-label="Billing actions">
+    <button id="ub-save" class="button primary" type="button" title="Save monthly settlement" aria-label="Save monthly settlement"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V4M7 21v-8h10v8"/></svg><span id="ub-save-label" class="sr-only">Save monthly settlement</span></button>
+    <button id="ub-copy-result" class="button secondary" type="button" title="Copy bill as message" aria-label="Copy bill as message"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-result-label" class="sr-only">Copy bill as message</span></button>
+    <button id="ub-share" class="button secondary" type="button" title="Share breakdown" aria-label="Share breakdown"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.3 11 7.4-4.7m-7.4 6.7 7.4 4.7"/></svg><span id="ub-share-label" class="sr-only">Share breakdown</span></button>
    </div>
    <p class="data-note" id="ub-info">Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses.</p>
   </section>
@@ -149,7 +163,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   pane.innerHTML=html;
   pane.classList.remove("hidden");
   const dialog=el("ub-type-dialog");
-  document.body.append(dialog);
+  const billDialog=el("ub-bill-dialog");
+  document.body.append(dialog,billDialog);
   el("fee-mode-controls").classList.add("hidden");
   el("fee-title").textContent=t("Calculate monthly bills");
   const caption=el("fee-title").nextElementSibling;
@@ -159,8 +174,17 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const h=legacy.querySelector("h4");if(h)h.textContent=t("Monthly settlements");
    const p=legacy.querySelector(".fee-history-head p");if(p)p.textContent=t("Saved periods and payment progress.");
   }
-  el("ub-type").addEventListener("change",e=>{selectedType=e.target.value;refreshTypeActions()});
+  el("ub-type").addEventListener("change",async e=>{
+   const next=e.target.value,prior=selectedType;
+   if(workingGroup&&JSON.stringify(workingGroup)!==originalWorking){
+    const yes=await confirmAction({title:t("Discard unsaved bill changes?"),message:t("Switching types will discard changes in this open form."),confirmText:t("Switch bill type"),cancelText:t("Continue editing")});
+    if(!yes){e.target.value=prior;return}
+   }
+   selectedType=next;openSelectedType();
+  });
   el("ub-add").addEventListener("click",openSelectedType);
+  el("ub-modal-close").addEventListener("click",cancelBill);
+  billDialog.addEventListener("cancel",e=>{e.preventDefault();cancelBill()});
   el("ub-new-type").addEventListener("click",()=>openTypeDialog());
   el("ub-edit-type").addEventListener("click",()=>openTypeDialog(selectedType));
   el("ub-delete-type").addEventListener("click",deleteType);
@@ -170,8 +194,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   el("ub-type-save").addEventListener("click",saveType);
   el("ub-new-name").addEventListener("input",e=>{newType.name=e.target.value;el("ub-type-error").textContent=""});
   el("ub-new-method").addEventListener("change",e=>{newType.fees.forEach(f=>f.method=e.target.value)});
-  el("ub-cancel").addEventListener("click",()=>{editing=null;renderForm()});
-  el("ub-done").addEventListener("click",()=>{editing=null;store();renderForm();renderSummary()});
+  el("ub-cancel").addEventListener("click",cancelBill);
+  el("ub-done").addEventListener("click",commitBill);
   el("ub-share").addEventListener("click",shareCurrent);
   el("ub-copy-result").addEventListener("click",()=>writeClipboard(summarize()));
   el("ub-copy-last").addEventListener("click",copyPrevious);
@@ -196,7 +220,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const isCustom=selectedType.startsWith("custom:");
   setVisible("ub-edit-type",isCustom&&owner);
   setVisible("ub-delete-type",isCustom&&owner);
-  el("ub-add").textContent=t(groups.some(g=>g.id===selectedType)?"Edit bill":"Add bill");
+  el("ub-add-label").textContent=t("Add bill");
  }
  function renderCatalog(){
   const select=el("ub-type");const prior=selectedType;
@@ -213,22 +237,45 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!owner||!active())return;
   const type=catalog().find(x=>x.id===selectedType);
   if(!type)return;
-  let group=groups.find(g=>g.id===selectedType);
-  if(!group){
-   if(countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
-   group=makeGroup(type);groups.push(group);
-   dirty=true;store();
+  const existingGroup=groups.find(g=>g.id===selectedType);
+  if(!existingGroup&&countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
+  workingGroup=existingGroup?copy(existingGroup):makeGroup(type);
+  editing=workingGroup.id;
+  originalWorking=JSON.stringify(workingGroup);
+  const editingOld=Boolean(existingGroup);
+  el("ub-modal-heading").textContent=t(editingOld?"Edit bill":"Add bill");
+  el("ub-done").textContent=t(editingOld?"Save changes":"Add bill");
+  el("ub-bill-error").textContent="";
+  renderCatalog();renderForm();
+  const dlg=el("ub-bill-dialog");
+  if(!dlg.open)dlg.showModal();
+ }
+ function cancelBill(){
+  workingGroup=null;editing=null;originalWorking="";
+  if(el("ub-bill-dialog").open)el("ub-bill-dialog").close();
+  renderForm();
+ }
+ function commitBill(){
+  if(!workingGroup||!owner||!active())return;
+  const candidate=workingGroup;
+  const total=groupTotal(candidate);
+  if(total<=0){el("ub-bill-error").textContent=t("Enter an amount greater than zero.");return}
+  const verdict=calculateSelection([candidate],residents,residentDays);
+  if(!verdict.valid){
+   el("ub-bill-error").textContent=t(verdict.error||"Invalid sharing rule.");
+   return;
   }
-  editing=group.id;
-  renderForm();renderSummary();
-  el("ub-form")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+  const idx=groups.findIndex(g=>g.id===candidate.id);
+  if(idx>=0)groups[idx]=candidate;
+  else groups.push(candidate);
+  dirty=true;store();cancelBill();renderSummary();
  }
  function renderForm(){
   setVisible("ub-form",Boolean(editing)&&owner);
-  const group=groups.find(g=>g.id===editing);
+  const group=workingGroup;
   if(!group)return;
   el("ub-form-title").textContent=displayGroupName(group);
-  el("ub-done").textContent=t("Done editing");
+  // Button caption depends on add/edit mode, configured on modal open.
   const root=el("ub-form-items");root.replaceChildren();
 
   // Each subfee keeps an independent amount, but the sharing rule belongs to
@@ -243,7 +290,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    amount.addEventListener("input",()=>{
     fee.amount=parseMoney(amount.value);
     amount.value=fee.amount?fmt(fee.amount):"";
-    dirty=true;store();renderSummary();el("ub-form-amount").textContent=money(groupTotal(group));
+    el("ub-bill-error").textContent="";el("ub-form-amount").textContent=money(groupTotal(group));
    });
    field.append(caption,amount);wrap.append(field);root.append(wrap);
   }
@@ -264,7 +311,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   select.addEventListener("change",()=>{
    if(select.value==="mixed")return;
    applyGroupRule(group,select.value);
-   dirty=true;store();renderForm();renderSummary();
+   renderForm();
   });
   methodField.append(ruleLabel,select);
   settings.append(methodField);
@@ -296,7 +343,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     person.append(node("span",null,resident.name));
     if(current==="equal"){
      const checkbox=node("input");checkbox.type="checkbox";checkbox.checked=cfg.included!==false;
-     checkbox.addEventListener("change",()=>{cfg.included=checkbox.checked;dirty=true;store();renderSummary()});
+     checkbox.addEventListener("change",()=>{cfg.included=checkbox.checked});
      person.prepend(checkbox);
     }else{
      const quantity=node("input","control");
@@ -305,7 +352,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
      const key=current==="quantity"?"quantity":"manual";
      quantity.value=String(cfg[key]||0);
      quantity.setAttribute("aria-label",resident.name+" - "+title);
-     quantity.addEventListener("input",()=>{cfg[key]=Math.max(0,Number(quantity.value)||0);dirty=true;store();renderSummary()});
+     quantity.addEventListener("input",()=>{cfg[key]=Math.max(0,Number(quantity.value)||0)});
      person.append(quantity);
     }
     people.append(person);
@@ -329,21 +376,19 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const amount=node("strong","ub-bill-amount",money(groupTotal(group)));
    if(!group.enabled)row.classList.add("ub-excluded");
    const edit=node("button","mini",t("Edit"));edit.type="button";
-   edit.addEventListener("click",()=>{editing=group.id;selectedType=group.id;renderCatalog();renderForm();el("ub-form").scrollIntoView({behavior:"smooth",block:"nearest"})});
+   edit.addEventListener("click",()=>{selectedType=group.id;openSelectedType()});
    const remove=node("button","mini red",t("Remove"));remove.type="button";
    remove.addEventListener("click",async()=>{
     const yes=await confirmAction({title:t("Remove bill from draft?"),message:t("This removes the bill from the current draft only; saved historical bills are not changed."),confirmText:t("Remove"),cancelText:t("Cancel"),tone:"danger"});
     if(!yes)return;
-    groups=groups.filter(g=>g!==group);if(editing===group.id){editing=null;renderForm()}dirty=true;store();renderSummary();
+    groups=groups.filter(g=>g!==group);dirty=true;store();renderSummary();
    });
    if(!owner)toggle.disabled=edit.disabled=remove.disabled=true;
    row.append(toggle,title,amount,edit,remove);list.append(row);
   }
   const tooMany=countFees()>30;
-  const totalEntered=groups.reduce((sum,g)=>sum+groupTotal(g),0);
   const totalSelected=groups.filter(g=>g.enabled).reduce((sum,g)=>sum+groupTotal(g),0);
   el("ub-total").textContent=money(totalSelected);
-  el("ub-entered").textContent=money(totalEntered);
   const result=calculation();
   const people=el("ub-people");people.replaceChildren();
   if(result.valid){
@@ -361,7 +406,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  function renderAll(){
   el("ub-month").value=month;
-  renderCatalog();renderForm();renderSummary();renderHistory();
+  renderCatalog();renderSummary();renderHistory();
  }
  function summarize(){
   const result=calculation();if(!result.valid)return "";
@@ -480,7 +525,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const yes=await confirmAction({title:t("Replace current draft?"),message:t("This replaces the current draft with the previous bill structure. Amounts will be cleared."),confirmText:t("Copy structure"),cancelText:t("Cancel")});
    if(!yes)return;
   }
-  groups=restorePeriod(prior,true);editing=null;dirty=true;store();renderAll();
+  groups=restorePeriod(prior,true);cancelBill();dirty=true;store();renderAll();
   toast(t("Copied. Enter this month's amounts."));
  }
  async function savePeriod(){
@@ -499,7 +544,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     p_apartment_id:apt,p_month:month,p_name:BILL_NAME,p_items:payload
    });
    if(error)throw error;
-   forgetDraft();dirty=false;reloadSaved=true;editing=null;
+   forgetDraft();dirty=false;reloadSaved=true;cancelBill();
    toast(t("Monthly settlement saved."));
    if(onSaved)await onSaved(apt);
    else await load(apt,owner,residents);
@@ -571,7 +616,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!apartment)return clear();
   const changed=apt!==apartment;
   apt=apartment;owner=ownerFlag;residents=roster||[];
-  if(changed){month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
+  if(changed){cancelBill();month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
   setVisible("fee-workspace",owner);
   setVisible("fee-editor",owner);
   setVisible("fee-mode-controls",false);
@@ -594,18 +639,18 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   else renderAll();
  }
  function clear(){
-  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;editing=null;loaded=false;reloadSaved=false;
+  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;cancelBill();loaded=false;reloadSaved=false;
   setVisible("fee-workspace",false);
  }
  function retranslate(){
   if(!el("ub-heading"))return;
   const keys=[
    ["ub-heading","Billing period"],["ub-caption","Select a month to calculate the full billing period."],
-   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add","Add bill"],
+   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add-label","Add bill"],["ub-modal-heading","Add bill"],["ub-modal-close","Close"],
    ["ub-new-type","+ Create custom bill type"],["ub-edit-type","Edit custom type"],["ub-delete-type","Delete custom type"],
-   ["ub-cancel","Close"],["ub-form-total-label","Bill subtotal"],["ub-done","Done editing"],
+   ["ub-cancel","Cancel"],["ub-form-total-label","Bill subtotal"],
    ["ub-summary-title","Bills in this period"],["ub-empty","No bills yet. Choose a bill type above to begin."],
-   ["ub-selected-label","Selected total"],["ub-entered-label","All entered bills"],
+   ["ub-selected-label","Total amount"],
    ["ub-people-heading","Per-resident breakdown"],["ub-copy-last-label","Use last month's template"],
    ["ub-share-label","Share breakdown"],["ub-save-label","Save monthly settlement"],["ub-copy-result-label","Copy bill as message"],
    ["ub-info","Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses."],
@@ -621,7 +666,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(hdesc)hdesc.textContent=t("Saved periods and payment progress.");
   const options=el("ub-new-method").options;
   [...options].forEach(o=>o.textContent=t(METHODS_LABEL[o.value]||o.value));
-  if(loaded)renderAll();
+  if(loaded){renderAll();if(workingGroup){el("ub-modal-heading").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Edit bill":"Add bill");el("ub-done").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Save changes":"Add bill");renderForm()}}
  }
  install();
  setVisible("fee-workspace",false);
