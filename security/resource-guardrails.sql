@@ -77,6 +77,31 @@ create trigger oghep_guard_invitation_creation
  before insert on public.apartment_invitations for each row
  execute function app_private.guard_invitation_creation();
 
+-- Bound resident creation even when a client bypasses the UI.
+create or replace function app_private.guard_resident_creation()
+returns trigger language plpgsql security definer set search_path to '' as $
+declare v_uid uuid:=auth.uid();
+begin
+  if v_uid is null then return new; end if;
+  if not app_private.is_owner(new.apartment_id) then
+    raise exception 'Only the apartment owner can add residents';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('oghep:resident:'||new.apartment_id::text,0)
+  );
+  if (select count(*) from public.apartment_residents
+      where apartment_id=new.apartment_id)>=70 then
+    raise exception 'Maximum of 70 residents per apartment';
+  end if;
+  perform app_private.consume_quota('resident:create',new.apartment_id::text,100,86400);
+  return new;
+end $;
+revoke all on function app_private.guard_resident_creation() from public, anon, authenticated;
+drop trigger if exists oghep_guard_resident_creation on public.apartment_residents;
+create trigger oghep_guard_resident_creation
+ before insert on public.apartment_residents for each row
+ execute function app_private.guard_resident_creation();
+
 create or replace function app_private.guard_bill_mutation()
 returns trigger language plpgsql security definer set search_path to '' as $$
 declare v_uid uuid:=auth.uid();v_action text;
@@ -144,6 +169,7 @@ begin
  if p_month !~ '^[0-9]{4}-(0[1-9]|1[0-2])$' then raise exception 'Invalid month';end if;
  v_bill_name:=btrim(coalesce(p_name,''));
  if length(v_bill_name) not between 2 and 100 then raise exception 'Invalid period name';end if;
+ if octet_length(p_items::text)>1000000 then raise exception 'Billing payload is too large';end if;
  if jsonb_typeof(p_items) is distinct from 'array' or jsonb_array_length(p_items) not between 1 and 30 then raise exception 'Expected 1 to 30 charge lines';end if;
  for v_fee in select value from jsonb_array_elements(p_items) loop
   if length(btrim(coalesce(v_fee->>'name',''))) not between 1 and 100
