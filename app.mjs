@@ -27,6 +27,7 @@ const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invi
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false,justSavedBillId:null};
 const feeUI=createFeeUI({
  db,getContext:()=>state,t,money,toast,errorNotice,confirmAction,nowMonth,
+ onMonthChange:()=>renderResidentTable(),
  onSaved:async(apartmentId)=>{
   // Preserve saved charge snapshots. Reset only the current resident preferences.
   const {error}=await db.from("apartment_residents")
@@ -46,7 +47,7 @@ function authMessage(message){state.authStatus=message;label("#authmsg",t(messag
 const isOwner=()=>state.owner;
 const currentAptKey=()=>("oghep-active:"+state.user.id);
 function billingPeriod(){
- const [year,month]=state.draft.month.split("-").map(Number);
+ const [year,month]=String(feeUI.getMonth?.()||state.draft.month).split("-").map(Number);
  const defaultDays=year>=1900&&year<=2100&&month>=1&&month<=12?new Date(year,month,0).getDate():30;
  const start=state.draft.start,end=state.draft.end;
  if(!start&&!end)return {valid:true,days:defaultDays,start:null,end:null};
@@ -162,6 +163,7 @@ function savePendingResidents(){
 }
 function changedResident(p){
  if(!state.owner)return;
+ feeUI.refresh?.();
  state.dirty.set(p.id,{...p});
  clearTimeout(state.writeTimer);state.writeTimer=setTimeout(savePendingResidents,650);
 }
