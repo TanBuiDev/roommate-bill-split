@@ -222,15 +222,20 @@ function memberStatus(resident){
  return latestPendingInvite(resident.id)?"invited":"none";
 }
 function updateMemberDialogLabels(){
- const title=memberDialogMode==="add"?"Add a resident":memberDialogMode==="resend"?"Resend invitation":"Invite resident";
+ const selfMode=memberDialogMode==="self";
+ const title=selfMode?"Add yourself to the bill":memberDialogMode==="add"?"Add a resident":memberDialogMode==="resend"?"Resend invitation":"Invite resident";
  label("#member-dialog-title",t(title));
- label("#member-dialog-description",t(memberDialogMode==="add"
+ label("#member-dialog-description",t(selfMode
+  ?"You're already the apartment owner. Enter the name you want shown on bills; no invitation is needed."
+  :memberDialogMode==="add"
   ?"Add someone to your apartment. Email is optional unless you want to invite them."
   :"Send a private invitation link to join your apartment."));
  const submit=$("#member-add-invite"),addOnly=$("#member-add-only");
- submit.textContent=t(memberDialogMode==="add"?"Add & invite":memberDialogMode==="resend"?"Resend invitation":"Send invitation");
+ submit.textContent=t(selfMode?"Include me in bills":memberDialogMode==="add"?"Add & invite":memberDialogMode==="resend"?"Resend invitation":"Send invitation");
  addOnly.hidden=memberDialogMode!=="add";
- $("#member-name-input").readOnly=memberDialogMode!=="add";
+ $("#member-name-input").readOnly=memberDialogMode!=="add"&&!selfMode;
+ const emailField=$("#member-email-input").closest(".field");
+ if(emailField)emailField.classList.toggle("hidden",selfMode);
  $("#member-email-input").readOnly=memberDialogMode==="resend";
  updateMemberFormButtons();
 }
@@ -248,7 +253,7 @@ function updateMemberFormButtons(){
  const email=$("#member-email-input").value.trim();
  const nameOk=name.length>=1&&name.length<=70;
  $("#member-add-only").disabled=memberDialogBusy||memberDialogMode!=="add"||!nameOk;
- $("#member-add-invite").disabled=memberDialogBusy||!nameOk||!validMemberEmail(email);
+ $("#member-add-invite").disabled=memberDialogBusy||!nameOk||(memberDialogMode!=="self"&&!validMemberEmail(email));
  $("#member-dialog-close").disabled=memberDialogBusy;
  $("#member-dialog-cancel").disabled=memberDialogBusy;
 }
@@ -258,12 +263,14 @@ function openMemberDialog(mode="add",resident=null,invitation=null){
  memberDialogBusy=false;memberDialogOrigin=document.activeElement;
  const dlg=$("#member-form-dialog");
  $("#member-dialog-form").reset();
- $("#member-name-input").value=resident?.name||"";
+ $("#member-name-input").value=mode==="self"
+  ?(state.user?.user_metadata?.full_name||state.user?.user_metadata?.name||state.user?.email?.split("@")[0]||"").trim().slice(0,70)
+  :resident?.name||"";
  $("#member-email-input").value=invitation?.invited_email||"";
  memberFormError("");
  updateMemberDialogLabels();
  if(!dlg.open)dlg.showModal();
- (mode==="add"?$("#member-name-input"):$("#member-email-input")).focus();
+ (mode==="add"||mode==="self"?$("#member-name-input"):$("#member-email-input")).focus();
 }
 function closeMemberDialog(){
  if(memberDialogBusy)return;
@@ -280,8 +287,10 @@ function checkMemberForm(needEmail){
  if(!name||name.length>70)return t("Enter a resident name.");
  if(memberDialogMode==="add"&&state.residents.some(p=>p.name.trim().toLocaleLowerCase("vi")===name.toLocaleLowerCase("vi")))
   return t("This resident name already exists.");
+ if(memberDialogMode==="self"&&state.residents.some(p=>p.name.trim().toLocaleLowerCase("vi")===name.toLocaleLowerCase("vi")&&p.user_id))
+  return t("This name belongs to a linked resident.");
  if(state.residents.length>=70&&memberDialogMode==="add")return t("Maximum 70 residents per apartment.");
- if(needEmail&&!validMemberEmail(email))return t("Enter a valid email address.");
+ if(needEmail&&memberDialogMode!=="self"&&!validMemberEmail(email))return t("Enter a valid email address.");
  return "";
 }
 async function createResident(name){
@@ -332,6 +341,17 @@ async function memberFormAction(invite){
  memberDialogBusy=true;updateMemberFormButtons();
  try{
   let resident=memberDialogResident;
+  if(memberDialogMode==="self"){
+   const {error}=await db.rpc("add_owner_to_billing",{
+    p_apartment_id:state.apt.id,p_name:name
+   });
+   if(error)throw error;
+   memberDialogBusy=false;
+   closeMemberDialog();
+   await loadApartment(state.apt.id);
+   toast("You're included in the bill.");
+   return;
+  }
   if(memberDialogMode==="add"){
    resident=await createResident(name);
    memberDialogResident=resident;
@@ -346,8 +366,8 @@ async function memberFormAction(invite){
   closeMemberDialog();
  }catch(err){
   console.error("Member workflow failed",err);
-  memberFormError(memberDialogMode==="add"
-   ?"Could not add resident. Check the name and try again."
+  memberFormError(memberDialogMode==="self"?"Could not include the owner in the bill."
+   :memberDialogMode==="add"?"Could not add resident. Check the name and try again."
    :"Could not send invitation. The resident remains in your apartment.");
  }finally{
   memberDialogBusy=false;
@@ -362,17 +382,38 @@ function renderHouseholdList(){
  const root=$("#household-list");
  root.replaceChildren();
  if(!state.owner)return;
+ const linkedOwner=state.residents.find(p=>p.user_id===state.user?.id);
  const joined=state.residents.filter(x=>memberStatus(x)==="joined").length;
  const invited=state.residents.filter(x=>memberStatus(x)==="invited").length;
  label("#household-stats",t("{count} residents",{count:state.residents.length})+" · "+
   t("{count} joined",{count:joined})+" · "+t("{count} invited",{count:invited}));
+ // Owners are account members immediately after creation, without any invite.
+ const ownerName=linkedOwner?.name||state.user?.user_metadata?.full_name||state.user?.email?.split("@")[0]||t("Apartment owner");
+ const ownerRow=el("div","household-row household-row--owner");
+ const ownerAvatar=el("span","household-avatar",avatarInitials(ownerName));
+ ownerAvatar.setAttribute("aria-hidden","true");
+ const ownerInfo=el("div","household-person");
+ ownerInfo.append(el("strong",null,ownerName));
+ ownerInfo.append(el("small",null,state.user?.email||t("Owner account")));
+ const ownerBadge=el("span","household-status household-status--joined",t("Owner"));
+ const ownerActions=el("div","household-row-actions");
+ if(!linkedOwner){
+  const addSelf=el("button","mini household-row-action",t("Include me in bills"));
+  addSelf.type="button";
+  addSelf.addEventListener("click",()=>openMemberDialog("self"));
+  ownerActions.append(addSelf);
+ }else{
+  ownerActions.append(el("span","household-owner-included",t("Included in bills")));
+ }
+ ownerRow.append(ownerAvatar,ownerInfo,ownerBadge,ownerActions);
+ root.append(ownerRow);
  if(!state.residents.length){
   const empty=el("div","household-empty");
   empty.append(el("strong",null,t("No residents yet.")));
   empty.append(el("p",null,t("Add your first resident to start splitting bills.")));
   root.append(empty);return;
  }
- state.residents.forEach(resident=>{
+ state.residents.filter(p=>p.user_id!==state.user?.id).forEach(resident=>{
   const status=memberStatus(resident),pending=latestPendingInvite(resident.id);
   const row=el("div","household-row");
   const avatar=el("span","household-avatar",avatarInitials(resident.name));
