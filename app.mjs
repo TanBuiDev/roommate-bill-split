@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
-import { createFeeUI } from "./fee-ui.mjs";
+import { createFeeUI } from "./unified-fee-ui.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
 const SITE="https://oghep.pages.dev";
