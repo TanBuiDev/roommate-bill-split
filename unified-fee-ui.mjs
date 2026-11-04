@@ -6,7 +6,7 @@ const BUILTINS = [
   {id:"electric",name:"Electricity",fees:[["Electricity","days"]]},
   {id:"water",name:"Cold water",fees:[["Cold water","days"],["Drainage and wastewater treatment (XLNT)","days"]]},
   {id:"management",name:"Management fees",fees:[["Indoor management","equal"],["Outdoor management","equal"]]},
-  {id:"committee",name:"Building committee remuneration",fees:[["Building committee fee","equal"],["Building committee operating contribution","equal"]]},
+  {id:"committee",name:"Building committee remuneration",fees:[["Building committee remuneration","equal"],["Building committee operating contribution","equal"]]},
   {id:"parking",name:"Motorcycle parking",fees:[["Motorcycle parking","quantity"]]},
   {id:"internet",name:"Internet",fees:[["Internet","equal"]]},
   {id:"rent",name:"Rent",fees:[["Rent","equal"]]},
