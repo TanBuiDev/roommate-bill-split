@@ -812,8 +812,20 @@ async function loadSavedBill(bill){
  });
  if(!confirmed)return;
  state.draft={type:bill.bill_type,month:bill.bill_month,amount:String(bill.amount),start:bill.period_start||"",end:bill.period_end||""};
- setDraft();$("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
- toast("Bill loaded. Check the current resident list before saving.");
+ // Restore the saved period's day selections for editing, rather than silently
+ // recalculating the bill with this month's reset-to-four-weeks preferences.
+ const historical=new Map((state.alloc[bill.id]||[]).map(item=>[item.resident_id,item]));
+ for(const resident of state.residents){
+  const saved=historical.get(resident.id);
+  if(!saved)continue;
+  if(["w1","w2","w3","w4","custom"].includes(saved.mode)){
+   resident.mode=saved.mode;
+   resident.custom_days=Math.max(0,Math.trunc(Number(saved.custom_days)||0));
+  }
+ }
+ setDraft();renderResidentTable();
+ $("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
+ toast("Saved days loaded for editing. Replacing the bill resets payment statuses.");
 }
 async function deleteBill(bill){
  if(!state.owner)return;
@@ -838,7 +850,8 @@ async function saveBill(){
    title:"Replace existing bill?",
    message:"A bill for this type and month already exists. Replacing it will reset everyone's payment status to Unpaid. The new amounts will replace the old ones.",
    confirmText:"Replace bill",
-   cancelText:"Keep existing bill"
+   cancelText:"Keep existing bill",
+   tone:"danger"
   });
   if(!confirmed)return;
  }
