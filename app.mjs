@@ -47,7 +47,8 @@ function authMessage(message){state.authStatus=message;label("#authmsg",t(messag
 const isOwner=()=>state.owner;
 const currentAptKey=()=>("oghep-active:"+state.user.id);
 function billingPeriod(){
- const [year,month]=String(feeUI.getMonth?.()||state.draft.month).split("-").map(Number);
+ const currentPeriodMonth=document.body.classList.contains("legacy-edit-active")?state.draft.month:(feeUI.getMonth?.()||state.draft.month);
+ const [year,month]=String(currentPeriodMonth).split("-").map(Number);
  const defaultDays=year>=1900&&year<=2100&&month>=1&&month<=12?new Date(year,month,0).getDate():30;
  const start=state.draft.start,end=state.draft.end;
  if(!start&&!end)return {valid:true,days:defaultDays,start:null,end:null};
@@ -851,8 +852,8 @@ async function loadSavedBill(bill){
    resident.custom_days=Math.max(0,Math.trunc(Number(saved.custom_days)||0));
   }
  }
- setDraft();renderResidentTable();
  document.body.classList.add("legacy-edit-active");
+ setDraft();renderResidentTable();
  $("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
  toast("Saved days loaded for editing. Replacing the bill resets payment statuses.");
 }
