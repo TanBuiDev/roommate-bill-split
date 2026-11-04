@@ -1,4 +1,5 @@
-import { calculatePeriod, METHODS } from "./fee-engine.mjs";
+import { METHODS } from "./fee-engine.mjs";
+import { calculateSelection, serializeSelection, hydrateSelection } from "./unified-billing-core.mjs";
 
 /* Unified monthly billing editor. All mutations are explicit user actions. */
 const BUILTINS = [
@@ -63,24 +64,9 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  function forgetDraft(){try{sessionStorage.removeItem(sessionKey());}catch{}}
  const groupTotal=g=>g.fees.reduce((sum,x)=>sum+(Number(x.amount)||0),0);
  const selectedItems=()=>groups.filter(g=>g.enabled).flatMap(g=>g.fees.map(f=>({...f,amount:Number(f.amount)||0})));
- const calculation=()=>calculatePeriod(selectedItems(),residents,residentDays);
+ const calculation=()=>calculateSelection(groups,residents,residentDays);
  const existing=()=>periods.find(p=>p.bill_month===month&&p.name===BILL_NAME);
- function restorePeriod(period,clearAmounts=false){
-  const result=new Map();
-  for(const item of period.items||[]){
-   const id=item.category_id || "legacy:"+String(item.id||item.name);
-   const name=item.category_name || item.name;
-   if(!result.has(id))result.set(id,{id,name,enabled:item.enabled!==false,fees:[]});
-   const g=result.get(id);
-   if(item.enabled===false)g.enabled=false;
-   g.fees.push({
-    id:item.id||uuid(),name:item.name,method:METHODS.includes(item.method)?item.method:"days",
-    amount:clearAmounts?0:Number(item.original_amount??item.amount)||0,
-    people:copy(item.people||{})
-   });
-  }
-  return [...result.values()];
- }
+ function restorePeriod(period,clearAmounts=false){return hydrateSelection(period.items||[],clearAmounts);}
  function restoreMonth(){
   editing=null;dirty=false;
   const saved=existing();
@@ -456,13 +442,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    if(!confirmed)return;
   }
   pending=true;renderSummary();
-  const allocations=new Map(result.lines.map(x=>[x.id,x.allocations]));
-  const payload=groups.flatMap(group=>group.fees.map(fee=>({
-   id:fee.id,name:fee.name,method:fee.method,
-   category_id:group.id,category_name:group.name,enabled:group.enabled,
-   amount:group.enabled?Number(fee.amount):0,original_amount:Number(fee.amount)||0,
-   people:fee.people,allocations:group.enabled?(allocations.get(fee.id)||[]):[]
-  })));
+  const payload=serializeSelection(groups,result.lines);
   try{
    const {error}=await db.rpc("save_apartment_fee_period",{
     p_apartment_id:apt,p_month:month,p_name:BILL_NAME,p_items:payload
