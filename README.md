@@ -133,6 +133,8 @@ Non-owner apartment members can view the consolidated saved history; owner-only 
 
 The layout has DOM smoke tests in `tests/dashboard-layout.test.mjs`, and its production code is syntax-tested by the existing GitHub Actions pipeline. All new application files are automatically included in the static Cloudflare Pages upload.
 
+**Release verification:** GitHub Actions must confirm the production `deploy-version.json` commit matches the latest `main` commit; the repository's contents being updated alone is not proof that Cloudflare is serving the new UI.
+
 ## November 2026 UX consolidation (current workflow)
 
 The latest authenticated dashboard keeps the original black-and-white identity and the approved resident/week table, but applies one consistent soft-card, rounded-input, lightweight-shadow design system.
