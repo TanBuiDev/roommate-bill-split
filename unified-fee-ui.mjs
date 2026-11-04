@@ -271,7 +271,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const candidate=workingGroup;
   const total=groupTotal(candidate);
   if(total<=0){el("ub-bill-error").textContent=t("Enter an amount greater than zero.");return}
-  const verdict=calculateSelection([candidate],residents,residentDays);
+  // Validate an excluded bill as if enabled, without changing its checkbox state.
+  const verdict=calculateSelection([{...candidate,enabled:true}],residents,residentDays);
   if(!verdict.valid){
    el("ub-bill-error").textContent=t(verdict.error||"Invalid sharing rule.");
    return;
