@@ -177,7 +177,7 @@ function renderResidentTable(){
  if(!state.residents.length){
   const row=el("tr"),td=el("td","muted",t("No residents yet. Add one above."));td.colSpan=8;row.append(td);body.append(row);
  }
- renderInviteOptions();renderResult();
+ renderHouseholdList();renderResult();
 }
 async function removeResident(p){
  if(!state.owner)return;
@@ -194,102 +194,236 @@ async function removeResident(p){
  if(error)return errorNotice("Could not remove resident.",error);
  state.residents=state.residents.filter(x=>x.id!==p.id);renderResidentTable();toast("Resident removed.");
 }
-async function addResident(e){
- e.preventDefault();if(!state.owner)return;
- const input=$("#new-resident-name"),name=input.value.trim();
- if(!name||state.residents.length>=70)return toast("Please enter a name. Maximum 70 residents.");
- if(state.residents.some(x=>x.name.trim().toLocaleLowerCase("vi")===name.toLocaleLowerCase("vi")))return toast("This resident name already exists.");
+
+/* A single resident workflow: add-only, add-and-invite, or invite an existing name. */
+let memberDialogMode="add";
+let memberDialogResident=null;
+let memberDialogApt=null;
+let memberDialogBusy=false;
+let memberDialogOrigin=null;
+
+function latestPendingInvite(residentId){
+ return state.invitations.find(inv=>
+  inv.resident_id===residentId&&inv.status==="pending"&&new Date(inv.expires_at)>new Date()
+ )||null;
+}
+function memberStatus(resident){
+ if(resident.user_id)return "joined";
+ return latestPendingInvite(resident.id)?"invited":"none";
+}
+function updateMemberDialogLabels(){
+ const title=memberDialogMode==="add"?"Add a resident":memberDialogMode==="resend"?"Resend invitation":"Invite resident";
+ label("#member-dialog-title",t(title));
+ label("#member-dialog-description",t(memberDialogMode==="add"
+  ?"Add someone to your apartment. Email is optional unless you want to invite them."
+  :"Send a private invitation link to join your apartment."));
+ const submit=$("#member-add-invite"),addOnly=$("#member-add-only");
+ submit.textContent=t(memberDialogMode==="add"?"Add & invite":memberDialogMode==="resend"?"Resend invitation":"Send invitation");
+ addOnly.hidden=memberDialogMode!=="add";
+ $("#member-name-input").readOnly=memberDialogMode!=="add";
+ $("#member-email-input").readOnly=memberDialogMode==="resend";
+ updateMemberFormButtons();
+}
+function memberFormError(message){
+ const node=$("#member-form-error");
+ node.textContent=message?t(message):"";
+ show("#member-form-error",!!message);
+}
+function validMemberEmail(email){
+ const input=$("#member-email-input");
+ return !!email&&email.length<=254&&input.checkValidity()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+function updateMemberFormButtons(){
+ const name=$("#member-name-input").value.trim();
+ const email=$("#member-email-input").value.trim();
+ const nameOk=name.length>=1&&name.length<=70;
+ $("#member-add-only").disabled=memberDialogBusy||memberDialogMode!=="add"||!nameOk;
+ $("#member-add-invite").disabled=memberDialogBusy||!nameOk||!validMemberEmail(email);
+ $("#member-dialog-close").disabled=memberDialogBusy;
+ $("#member-dialog-cancel").disabled=memberDialogBusy;
+}
+function openMemberDialog(mode="add",resident=null,invitation=null){
+ if(!state.owner||!state.apt)return;
+ memberDialogMode=mode;memberDialogResident=resident;memberDialogApt=state.apt.id;
+ memberDialogBusy=false;memberDialogOrigin=document.activeElement;
+ const dlg=$("#member-form-dialog");
+ $("#member-dialog-form").reset();
+ $("#member-name-input").value=resident?.name||"";
+ $("#member-email-input").value=invitation?.invited_email||"";
+ memberFormError("");
+ updateMemberDialogLabels();
+ if(!dlg.open)dlg.showModal();
+ (mode==="add"?$("#member-name-input"):$("#member-email-input")).focus();
+}
+function closeMemberDialog(){
+ if(memberDialogBusy)return;
+ const dlg=$("#member-form-dialog");
+ if(dlg.open)dlg.close();
+}
+function ensureMemberContext(){
+ return !!state.owner&&!!state.apt&&state.apt.id===memberDialogApt;
+}
+function checkMemberForm(needEmail){
+ if(!ensureMemberContext())return t("The apartment changed. Please reopen the member form.");
+ const name=$("#member-name-input").value.trim();
+ const email=$("#member-email-input").value.trim().toLowerCase();
+ if(!name||name.length>70)return t("Enter a resident name.");
+ if(memberDialogMode==="add"&&state.residents.some(p=>p.name.trim().toLocaleLowerCase("vi")===name.toLocaleLowerCase("vi")))
+  return t("This resident name already exists.");
+ if(state.residents.length>=70&&memberDialogMode==="add")return t("Maximum 70 residents per apartment.");
+ if(needEmail&&!validMemberEmail(email))return t("Enter a valid email address.");
+ return "";
+}
+async function createResident(name){
  const {data,error}=await db.from("apartment_residents").insert({
   apartment_id:state.apt.id,name,mode:"w4",custom_days:0,sort_order:state.residents.length
  }).select("id,apartment_id,user_id,name,mode,custom_days,sort_order").single();
- if(error)return errorNotice("Could not add resident.",error);
- state.residents.push(data);input.value="";renderResidentTable();toast("Resident added.");
+ if(error)throw error;
+ state.residents.push(data);
+ renderResidentTable();
+ return data;
 }
-function renderInviteOptions(){
- const select=$("#invite-resident");select.replaceChildren();
- const empty=el("option",null,t("Choose a resident"));empty.value="";select.append(empty);
- state.residents.filter(r=>!r.user_id).forEach(r=>{const option=el("option",null,r.name);option.value=r.id;select.append(option)});
+async function sendInviteForResident(resident,email){
+ const {data,error}=await db.rpc("create_apartment_invitation",{
+  p_apartment_id:state.apt.id,p_email:email,p_resident_id:resident.id
+ });
+ if(error)throw error;
+ state.inviteLink=SITE+"/?invite="+data.token;
+ const {error:mailError}=await db.auth.signInWithOtp({
+  email,options:{emailRedirectTo:state.inviteLink}
+ });
+ await refreshInvites();
+ if(mailError){
+  show("#invite-fallback",true);
+  errorNotice("Invitation created but email delivery failed. Copy the private invitation link below.",mailError);
+ }else{
+  show("#invite-fallback",false);
+  toast("Invitation email sent successfully.");
+ }
+ return !mailError;
 }
-
-function renderAccess(){
- const root=$("#member-access"),invites=$("#pending-invitations");root.replaceChildren();invites.replaceChildren();
- if(!state.owner)return;
- for(const m of state.members){
-  const r=state.residents.find(x=>x.user_id===m.user_id);
-  const known=state.invitations.find(x=>x.accepted_by===m.user_id);
-  const line=el("div","access-item");
-  line.append(el("span",null,(m.role==="owner"?t("You (owner)"):r?.name||known?.invited_email||t("Linked member"))+" · "+t(m.role==="owner"?"Owner":"Member")));
-  if(m.role!=="owner"){
-   const remove=el("button","mini",t("Remove access"));
-   remove.addEventListener("click",async()=>{
-    const confirmed=await confirmAction({
-     title:"Remove member access?",
-     message:"This person will lose access to the apartment and its bills. Saved bill snapshots are not affected.",
-     confirmText:"Remove access",
-     cancelText:"Keep member",
-     tone:"danger"
-    });
-    if(!confirmed)return;
-    const {error}=await db.rpc("remove_apartment_member",{p_apartment_id:state.apt.id,p_user_id:m.user_id});
-    if(error)return errorNotice("Could not remove member.",error);
-    await loadApartment(state.apt.id);
-   });
-   line.append(remove);
+async function memberFormAction(invite){
+ if(memberDialogBusy)return;
+ const message=checkMemberForm(invite);
+ if(message){memberFormError(message);return}
+ const name=$("#member-name-input").value.trim();
+ const email=$("#member-email-input").value.trim().toLowerCase();
+ memberDialogBusy=true;updateMemberFormButtons();
+ try{
+  let resident=memberDialogResident;
+  if(memberDialogMode==="add"){
+   resident=await createResident(name);
+   memberDialogResident=resident;
   }
-  root.append(line);
+  if(invite){
+   // When adding succeeded but sending failed, retry only the invitation.
+   memberDialogMode="invite";
+   updateMemberDialogLabels();
+   await sendInviteForResident(resident,email);
+  }else toast("Resident added.");
+  memberDialogBusy=false;
+  closeMemberDialog();
+ }catch(err){
+  console.error("Member workflow failed",err);
+  memberFormError(memberDialogMode==="add"
+   ?"Could not add resident. Check the name and try again."
+   :"Could not send invitation. The resident remains in your apartment.");
+ }finally{
+  memberDialogBusy=false;
+  updateMemberFormButtons();
  }
- const pending=state.invitations.filter(x=>x.status==="pending"&&new Date(x.expires_at)>new Date());
- if(!pending.length)invites.append(el("p","muted",t("No pending invitations.")));
- for(const invitation of pending){
-  const line=el("div","access-item");
-  line.append(el("span",null,invitation.invited_email+" · "+t("expires {date}",{date:new Date(invitation.expires_at).toLocaleDateString(getLocale())})));
-  const revoke=el("button","mini",t("Revoke"));
-  revoke.addEventListener("click",async()=>{
-   const confirmed=await confirmAction({
-    title:"Revoke invitation?",
-    message:"This invitation link will stop working. You can send a new invitation later.",
-    confirmText:"Revoke invitation",
-    cancelText:"Keep invitation",
-    tone:"danger"
-   });
-   if(!confirmed)return;
-   const {error}=await db.rpc("revoke_apartment_invitation",{p_invite_id:invitation.id});
-   if(error)return errorNotice("Could not revoke invitation.",error);
-   state.invitations=state.invitations.filter(x=>x.id!==invitation.id);
-   renderAccess();toast("Invitation revoked.");
-  });
-  line.append(revoke);invites.append(line);
+}
+function avatarInitials(name){
+ const tokens=(name||"").trim().split(/\s+/).filter(Boolean);
+ return (tokens.length>=2?tokens[0][0]+tokens[tokens.length-1][0]:(tokens[0]||"?").slice(0,2)).toLocaleUpperCase("vi");
+}
+function renderHouseholdList(){
+ const root=$("#household-list");
+ root.replaceChildren();
+ if(!state.owner)return;
+ const joined=state.residents.filter(x=>memberStatus(x)==="joined").length;
+ const invited=state.residents.filter(x=>memberStatus(x)==="invited").length;
+ label("#household-stats",t("{count} residents",{count:state.residents.length})+" · "+
+  t("{count} joined",{count:joined})+" · "+t("{count} invited",{count:invited}));
+ if(!state.residents.length){
+  const empty=el("div","household-empty");
+  empty.append(el("strong",null,t("No residents yet.")));
+  empty.append(el("p",null,t("Add your first resident to start splitting bills.")));
+  root.append(empty);return;
  }
+ state.residents.forEach(resident=>{
+  const status=memberStatus(resident),pending=latestPendingInvite(resident.id);
+  const row=el("div","household-row");
+  const avatar=el("span","household-avatar",avatarInitials(resident.name));
+  avatar.setAttribute("aria-hidden","true");
+  const details=el("div","household-person");
+  details.append(el("strong",null,resident.name));
+  const known=state.invitations.find(inv=>inv.accepted_by===resident.user_id);
+  details.append(el("small",null,status==="invited"?pending.invited_email:
+    status==="joined"?(known?.invited_email||t("Account linked")):t("No email linked")));
+  const statusText=status==="joined"?"Joined":status==="invited"?"Invited":"Not invited";
+  const badge=el("span","household-status household-status--"+status,t(statusText));
+  const actions=el("div","household-row-actions");
+  if(status==="joined"){
+   const member=state.members.find(m=>m.user_id===resident.user_id);
+   if(member&&member.role!=="owner"){
+    const remove=el("button","mini",t("Remove access"));
+    remove.type="button";
+    remove.addEventListener("click",()=>removeMemberAccess(member.user_id));
+    actions.append(remove);
+   }
+  }else{
+   const invite=el("button","mini household-row-action",t(status==="invited"?"Resend":"Invite"));
+   invite.type="button";
+   invite.addEventListener("click",()=>openMemberDialog(status==="invited"?"resend":"invite",resident,pending));
+   actions.append(invite);
+   if(status==="invited"){
+    const revoke=el("button","mini",t("Revoke"));
+    revoke.type="button";
+    revoke.addEventListener("click",()=>revokeInvite(pending));
+    actions.append(revoke);
+   }
+  }
+  row.append(avatar,details,badge,actions);
+  root.append(row);
+ });
+}
+async function removeMemberAccess(userId){
+ const confirmed=await confirmAction({
+  title:"Remove member access?",
+  message:"This person will lose access to the apartment and its bills. Saved bill snapshots are not affected.",
+  confirmText:"Remove access",cancelText:"Keep member",tone:"danger"
+ });
+ if(!confirmed)return;
+ const {error}=await db.rpc("remove_apartment_member",{
+  p_apartment_id:state.apt.id,p_user_id:userId
+ });
+ if(error)return errorNotice("Could not remove member.",error);
+ await loadApartment(state.apt.id);
+ toast("Member access removed.");
+}
+async function revokeInvite(invitation){
+ if(!invitation)return;
+ const confirmed=await confirmAction({
+  title:"Revoke invitation?",
+  message:"This invitation link will stop working. You can send a new invitation later.",
+  confirmText:"Revoke invitation",cancelText:"Keep invitation",tone:"danger"
+ });
+ if(!confirmed)return;
+ const {error}=await db.rpc("revoke_apartment_invitation",{p_invite_id:invitation.id});
+ if(error)return errorNotice("Could not revoke invitation.",error);
+ state.invitations=state.invitations.filter(x=>x.id!==invitation.id);
+ renderHouseholdList();
+ toast("Invitation revoked.");
 }
 async function refreshInvites(){
  if(!state.owner)return;
- const {data,error}=await db.from("apartment_invitations").select("id,invited_email,status,expires_at,accepted_by").eq("apartment_id",state.apt.id).order("created_at",{ascending:false}).limit(50);
- if(error)return errorNotice("Could not refresh invitations.",error);
- state.invitations=data||[];renderAccess();
-}
-async function sendInvitation(e){
- e.preventDefault();if(!state.owner)return;
- const email=$("#invite-email").value.trim().toLowerCase();
- const resident=$("#invite-resident").value;
- if(!email||!resident)return toast("Choose a member and their email.");
- const button=$("#send-invite");button.disabled=true;
- try{
-  const {data,error}=await db.rpc("create_apartment_invitation",{p_apartment_id:state.apt.id,p_email:email,p_resident_id:resident});
-  if(error)throw error;
-  const url=SITE+"/?invite="+data.token;
-  state.inviteLink=url;
-  const {error:mailError}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:url}});
-  await refreshInvites();
-  $("#invite-email").value="";
-  if(mailError){
-   show("#invite-fallback",true);
-   errorNotice("Invitation created, but email delivery failed. Copy the private link.",mailError);
-  }else{
-   show("#invite-fallback",false);
-   toast("Invitation sign-in email sent. The member can join after accepting.");
-  }
- }catch(error){errorNotice("Could not create the invitation.",error)}
- finally{button.disabled=false}
+ const {data,error}=await db.from("apartment_invitations")
+  .select("id,resident_id,invited_email,status,expires_at,accepted_by,created_at")
+  .eq("apartment_id",state.apt.id).order("created_at",{ascending:false}).limit(50);
+ if(error)throw error;
+ state.invitations=data||[];
+ renderHouseholdList();
 }
 function renderAptOptions(){
  const select=$("#apartment-select");select.replaceChildren();
@@ -373,7 +507,7 @@ async function loadApartment(id){
   db.from("apartment_residents").select("id,apartment_id,user_id,name,sort_order,mode,custom_days").eq("apartment_id",id).order("sort_order"),
   db.from("apartment_members").select("user_id,role").eq("apartment_id",id),
   db.from("apartment_bills").select("id,apartment_id,bill_type,bill_month,amount,billing_days,period_start,period_end").eq("apartment_id",id).order("bill_month",{ascending:false}).limit(100),
-  state.owner?db.from("apartment_invitations").select("id,invited_email,status,expires_at,accepted_by").eq("apartment_id",id).order("created_at",{ascending:false}).limit(50):Promise.resolve({data:[]})
+  state.owner?db.from("apartment_invitations").select("id,resident_id,invited_email,status,expires_at,accepted_by,created_at").eq("apartment_id",id).order("created_at",{ascending:false}).limit(50):Promise.resolve({data:[]})
  ]);
  if(seq!==state.aptSeq)return;
  const err=r.error||m.error||b.error||i.error;
@@ -394,7 +528,7 @@ async function loadApartment(id){
  show("#owner-panel",state.owner);
  for(const id of ["#bill-details-panel","#residents-panel","#summary-panel"])show(id,state.owner);
  if(state.owner)blankDraft();
- renderResidentTable();renderAccess();renderHistory();
+ renderResidentTable();renderHistory();
 }
 
 function renderHistory(){
@@ -569,12 +703,8 @@ onLanguageChange(()=>{
  if(!state.user)return;
  if(!state.apt){renderGate();return}
  label("#apartment-role",t(state.owner?"Owner":"Member"));
- const selectedInvite=$("#invite-resident").value;
  renderResidentTable();
- if([...$("#invite-resident").options].some(opt=>opt.value===selectedInvite)){
-  $("#invite-resident").value=selectedInvite;
- }
- renderAccess();
+ if($("#member-form-dialog").open)updateMemberDialogLabels();
  renderHistory();
  renderResult();
 });
@@ -589,8 +719,27 @@ $("#accept-invite").addEventListener("click",acceptInvite);
 $("#manage-apartments").addEventListener("click",showGate);
 $("#apartment-select").addEventListener("change",e=>loadApartment(e.target.value));
 $("#copy-code").addEventListener("click",()=>state.apt&&clipboard(state.apt.code,"Apartment code copied."));
-$("#add-resident-form").addEventListener("submit",addResident);
-$("#invite-form").addEventListener("submit",sendInvitation);
+$("#open-member-modal").addEventListener("click",()=>openMemberDialog());
+$("#member-dialog-cancel").addEventListener("click",closeMemberDialog);
+$("#member-dialog-close").addEventListener("click",closeMemberDialog);
+$("#member-dialog-form").addEventListener("submit",event=>{event.preventDefault();memberFormAction(true)});
+$("#member-add-only").addEventListener("click",()=>memberFormAction(false));
+for(const id of ["#member-name-input","#member-email-input"]){
+ $(id).addEventListener("input",()=>{memberFormError("");updateMemberFormButtons()});
+}
+$("#member-form-dialog").addEventListener("cancel",event=>{
+ if(memberDialogBusy)event.preventDefault();
+});
+$("#member-form-dialog").addEventListener("click",event=>{
+ const dlg=$("#member-form-dialog");if(event.target!==dlg||memberDialogBusy)return;
+ const rect=dlg.getBoundingClientRect();
+ if(event.clientX<rect.left||event.clientX>rect.right||
+    event.clientY<rect.top||event.clientY>rect.bottom)closeMemberDialog();
+});
+$("#member-form-dialog").addEventListener("close",()=>{
+ if(memberDialogOrigin?.isConnected)memberDialogOrigin.focus({preventScroll:true});
+ memberDialogOrigin=null;
+});
 $("#copy-invite-link").addEventListener("click",()=>state.inviteLink&&clipboard(state.inviteLink,"Private invitation link copied."));
 $("#bill-type").addEventListener("change",e=>{state.draft.type=e.target.value;renderResult()});
 $("#bill-month").addEventListener("change",e=>{
