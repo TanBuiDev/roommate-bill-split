@@ -30,6 +30,7 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 - The owner always appears at the top of the household member list, even if the apartment has zero residents. This separates *account access* from *participation in bill splitting*.
 - The optional **Include me in bills** action links the logged-in owner's account directly to a resident row using the restricted `add_owner_to_billing` database function. It **does not** send an invitation or create a second apartment member.
 - If a matching, unlinked resident name already exists, the action links that record instead of duplicating it (unless it has an active invitation). Repeated requests are idempotent.
+- Owners can later opt out of the billing roster without losing Owner access. Existing bill allocation snapshots remain intact.
 - Existing apartments and residents remain unchanged until their owner explicitly adds themselves to a bill.
 
 ## Unified household manager
