@@ -159,7 +159,7 @@ export function hydrateSelection(items,clearAmounts=false){
   if(clearAmounts){
    group.people={};
    // All old groups can be reused without copying monetary amounts.
-   if(getGroupMethod(group)==="mixed")applyGroupRule(group,"days");
+   if(getGroupMethod(group)==="mixed"){delete group.people;group.legacyIndependent=true;}
    continue;
   }
   if(!group.people){
