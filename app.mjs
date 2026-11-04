@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
 import { createFeeUI } from "./unified-fee-ui.mjs";
+import { installDashboardLayout } from "./dashboard-layout.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
 const SITE="https://oghep.pages.dev";
@@ -22,12 +23,13 @@ const types={electric:"Electricity",water:"Water",internet:"Internet",other:"Oth
 const typeName=(code)=>t(types[code]||"Bill");
 const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")};
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
- shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),pendingWrites:0,
+ shown:new Set(),feePeriodCount:0,loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),pendingWrites:0,
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false,justSavedBillId:null};
 const feeUI=createFeeUI({
  db,getContext:()=>state,t,money,toast,errorNotice,confirmAction,nowMonth,
  onMonthChange:()=>renderResidentTable(),
+ onHistoryChanged:(count)=>{state.feePeriodCount=count;dashboardLayout.syncHistory(count,state.bills.length);},
  onSaved:async(apartmentId)=>{
   // Preserve saved charge snapshots. Reset only the current resident preferences.
   const {error}=await db.from("apartment_residents")
@@ -36,6 +38,7 @@ const feeUI=createFeeUI({
   if(state.apt?.id===apartmentId)await loadApartment(apartmentId,{preserveDraft:true});
  }
 });
+const dashboardLayout=installDashboardLayout({t});
 
 let toastTimer=0;
 function toast(message){
@@ -234,6 +237,7 @@ function renderResidentTable(){
   const row=el("tr"),td=el("td","muted",t("No residents yet. Add one above."));td.colSpan=9;row.append(td);body.append(row);
  }
  renderHouseholdList();renderResult();
+ dashboardLayout.syncDaySummary(state.residents.length,billingPeriod().days);
 }
 async function removeResident(p){
  if(!state.owner)return;
@@ -670,7 +674,8 @@ function renderGate(){
 }
 function showGate(){
  feeUI.clear();
- state.apt=null;state.owner=false;
+ state.apt=null;state.owner=false;state.feePeriodCount=0;
+ dashboardLayout.setApartment(false,false);
  show("#apartment-gate",true);show("#apartment-app",false);renderGate();
 }
 async function createApartment(e){
@@ -708,6 +713,7 @@ async function loadUser(user,force=false,preferred=null){
  const seq=++state.loadSeq;
  const work=(async()=>{
   state.user=user;
+  dashboardLayout.setSignedIn(true);
   show("#loading",false);show("#auth",false);show("#workspace",true);show("#signout",true);
   label("#sync-chip",t("Connected"));$("#sync-chip").classList.add("connected");
   const a=await db.from("apartments").select("id,code,name,owner_id,created_at").order("created_at",{ascending:false});
@@ -730,7 +736,7 @@ async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
  const isNewApartment=state.apt?.id!==id;
- if(isNewApartment){state.justSavedBillId=null;document.body.classList.remove("legacy-edit-active")};
+ if(isNewApartment){state.justSavedBillId=null;state.feePeriodCount=0;document.body.classList.remove("legacy-edit-active");}
  const seq=++state.aptSeq;
  state.apt=a;state.owner=a.owner_id===state.user?.id;
  localStorage.setItem("oghep-active:"+state.user.id,a.id);
@@ -753,7 +759,8 @@ async function loadApartment(id,options={}){
  if(seq!==state.aptSeq)return;
  label("#apartment-name",a.name);label("#apartment-code",a.code);
  label("#apartment-role",t(state.owner?"Owner":"Member"));
- label("#dashboard-title",a.name);
+ label("#dashboard-title",t("Apartment dashboard"));
+ dashboardLayout.setApartment(state.owner,true);
  renderAptOptions();
  show("#apartment-gate",false);show("#apartment-app",true);
  show("#owner-panel",state.owner);
@@ -766,7 +773,7 @@ async function loadApartment(id,options={}){
 
 function renderHistory(){
  const root=$("#history");root.replaceChildren();
- label("#history-count",t("{count} periods",{count:state.bills.length}));
+ dashboardLayout.syncHistory(state.feePeriodCount,state.bills.length);
  if(!state.bills.length){root.append(el("p","muted",t("No saved bills yet.")));return}
  for(const bill of state.bills){
   const allocations=state.alloc[bill.id]||[];
@@ -1038,10 +1045,11 @@ async function login(e){
 function signOutView(){
  feeUI.clear();
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
- state.residents=[];state.bills=[];state.alloc={};state.justSavedBillId=null;state.dirty.clear();clearTimeout(state.writeTimer);
+ state.residents=[];state.bills=[];state.alloc={};state.feePeriodCount=0;state.justSavedBillId=null;state.dirty.clear();clearTimeout(state.writeTimer);
  state.authStatus="";label("#authmsg","");
  show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
  label("#sync-chip",t("Signed out"));$("#sync-chip").classList.remove("connected");
+ dashboardLayout.setSignedIn(false);dashboardLayout.setApartment(false,false);
 }
 // Language changes update the current UI without reloading, switching apartment or changing form values.
 $("#lang-vi").addEventListener("click",()=>setLanguage("vi"));
@@ -1051,6 +1059,7 @@ onLanguageChange(()=>{
  const status=state.user?"Connected":"Signed out";
  label("#sync-chip",t(status));
  refreshLogin();
+ dashboardLayout.retranslate();
  // All static content and select-option captions are translated by the i18n module.
  if(!state.user)return;
  if(!state.apt){renderGate();return}
