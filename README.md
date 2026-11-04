@@ -24,6 +24,14 @@ The equivalent Windows CMD environment assignment is set "CLOUDFLARE_ACCOUNT_ID=
 No JavaScript secrets should ever be committed. The frontend contains only a publishable database key and is protected by database-level RLS.
 
 
+## Apartment owner and billing roster
+
+- Creating an apartment **automatically grants the creator Owner access** through `apartment_members`; no email invitation is ever required for the owner.
+- The owner always appears at the top of the household member list, even if the apartment has zero residents. This separates *account access* from *participation in bill splitting*.
+- The optional **Include me in bills** action links the logged-in owner's account directly to a resident row using the restricted `add_owner_to_billing` database function. It **does not** send an invitation or create a second apartment member.
+- If a matching, unlinked resident name already exists, the action links that record instead of duplicating it (unless it has an active invitation). Repeated requests are idempotent.
+- Existing apartments and residents remain unchanged until their owner explicitly adds themselves to a bill.
+
 ## Unified household manager
 
 - One **Add member** button opens a branded modal with resident name and optional email.
