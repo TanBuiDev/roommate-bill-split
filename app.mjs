@@ -21,7 +21,7 @@ const types={electric:"Electricity",water:"Water",internet:"Internet",other:"Oth
 const typeName=(code)=>t(types[code]||"Bill");
 const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")};
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
- shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
+ shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),pendingWrites:0,
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false};
 let toastTimer=0;
@@ -118,15 +118,17 @@ function setDraft(){
 function blankDraft(){state.draft={type:"electric",month:nowMonth(),amount:"",start:"",end:""};setDraft()}
 function savePendingResidents(){
  if(!state.owner||!state.apt||!state.dirty.size)return;
- const items=[...state.dirty.values()];state.dirty.clear();
+ const items=[...state.dirty.values()],apartmentId=state.apt.id;
+ state.dirty.clear();state.pendingWrites++;
  state.writeChain=state.writeChain.then(async()=>{
   for(const p of items){
    const {error}=await db.from("apartment_residents").update({
     name:p.name.trim()||"Resident",mode:p.mode,custom_days:p.custom_days,sort_order:p.sort_order
-   }).eq("id",p.id).eq("apartment_id",state.apt.id);
+   }).eq("id",p.id).eq("apartment_id",apartmentId);
    if(error)throw error;
   }
- }).catch(err=>errorNotice("Resident changes were not saved. Please reload.",err));
+ }).catch(err=>errorNotice("Resident changes were not saved. Please reload.",err))
+ .finally(()=>{state.pendingWrites=Math.max(0,state.pendingWrites-1)});
 }
 function changedResident(p){
  if(!state.owner)return;
@@ -708,7 +710,7 @@ function scheduleApartmentRefresh(delay=400){
   apartmentRefreshTimer=null;
   if(!state.user||state.apt?.id!==watchedApartment)return;
   const editingResident=!!document.activeElement?.closest?.("#members");
-  if(state.billSaving||state.dirty.size||bulkDialogBusy||memberDialogBusy||editingResident){
+  if(state.billSaving||state.dirty.size||state.pendingWrites||bulkDialogBusy||memberDialogBusy||editingResident){
    scheduleApartmentRefresh(1000);
    return;
   }
