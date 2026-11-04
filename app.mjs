@@ -729,7 +729,7 @@ async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
  const isNewApartment=state.apt?.id!==id;
- if(isNewApartment)state.justSavedBillId=null;
+ if(isNewApartment){state.justSavedBillId=null;document.body.classList.remove("legacy-edit-active")};
  const seq=++state.aptSeq;
  state.apt=a;state.owner=a.owner_id===state.user?.id;
  localStorage.setItem("oghep-active:"+state.user.id,a.id);
@@ -852,6 +852,7 @@ async function loadSavedBill(bill){
   }
  }
  setDraft();renderResidentTable();
+ document.body.classList.add("legacy-edit-active");
  $("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
  toast("Saved days loaded for editing. Replacing the bill resets payment statuses.");
 }
@@ -904,6 +905,7 @@ async function saveBill(){
   if(reset.error)errorNotice("Bill saved, but default days could not be restored.",reset.error);
   else toast("Bill saved. Resident weeks reset to 4 weeks.");
   if(state.apt?.id===apartmentId){
+   document.body.classList.remove("legacy-edit-active");
    if(!reset.error)state.residents.forEach(p=>{p.mode="w4";p.custom_days=0});
    await loadApartment(apartmentId,{resetDraft:true});
   }
@@ -1124,6 +1126,14 @@ for(const input of ["#period-start","#period-end"]){
 $("#copy").addEventListener("click",copyBreakdown);
 $("#share").addEventListener("click",shareBreakdown);
 $("#save").addEventListener("click",saveBill);
+/* Legacy single-bill editor is available only when editing an old saved bill. */
+const legacyClose=el("button","mini",t("Close legacy editor"));
+legacyClose.type="button";legacyClose.id="legacy-editor-close";
+$("#bill-details-panel .panel-header").append(legacyClose);
+legacyClose.addEventListener("click",async()=>{
+ document.body.classList.remove("legacy-edit-active");
+ if(state.apt?.id)await loadApartment(state.apt.id,{preserveDraft:true});
+});
 $("#refresh-history").addEventListener("click",async()=>{
  if(!state.apt||!state.user)return;
  const button=$("#refresh-history"),id=state.apt.id;
