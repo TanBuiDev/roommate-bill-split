@@ -132,21 +132,20 @@
               <div class="apartment-current"><span class="section-kicker">CURRENT APARTMENT</span><h3 id="apartment-name">Apartment</h3><div class="meta-row"><span class="tag" id="apartment-code">OG-XXXXXXXXXX</span><span class="tag" id="apartment-role">Member</span><button id="copy-code" class="mini" type="button">Copy code</button></div></div>
               <div class="apartment-switcher"><label for="apartment-select">Switch apartment</label><select id="apartment-select" class="control"></select><button id="manage-apartments" class="mini" type="button">Create another</button></div>
             </section>
-            <section class="panel" id="owner-panel" aria-labelledby="household-title">
-              <div class="panel-header"><span class="step-number">01</span><div><h3 id="household-title">Household &amp; invitations</h3><p>Manage residents and invite them by email.</p></div></div>
-              <div class="owner-grid">
-                <div><h4 class="minor-title">Add a resident</h4>
-                  <form id="add-resident-form" class="inline-form"><input id="new-resident-name" class="control" type="text" maxlength="70" required placeholder="Resident name"><button class="button primary" type="submit">Add resident</button></form>
-                  <p class="data-note">Residents can be added before they register. Invite an existing name to link their account.</p>
-                </div>
-                <div><h4 class="minor-title">Send invitation by email</h4>
-                  <form id="invite-form" class="invite-form"><input class="control" id="invite-email" type="email" required placeholder="Email address" autocomplete="off"><select id="invite-resident" class="control" required><option value="">Choose a resident</option></select><button id="send-invite" class="button primary" type="submit">Send invitation</button></form>
-                  <p class="data-note">A verified email sign-in link will grant access. Private invitations expire in 7 days.</p>
-                  <div id="invite-fallback" class="invite-fallback hidden"><p>Invitation created, but email could not be sent. Copy the private link and send it yourself.</p><button class="mini" id="copy-invite-link" type="button">Copy invitation link</button></div>
-                </div>
+            <section class="panel household-panel" id="owner-panel" aria-labelledby="household-title">
+              <div class="household-head">
+                <div class="panel-header"><span class="step-number">01</span><div><h3 id="household-title">Household members</h3><p>Manage residents and apartment access in one place.</p></div></div>
+                <button class="button primary household-add-button" id="open-member-modal" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>Add member</span>
+                </button>
               </div>
-              <h4 class="minor-title">Members with access</h4><div id="member-access" class="access-list"></div>
-              <h4 class="minor-title">Pending invitations</h4><div id="pending-invitations" class="access-list"></div>
+              <div class="household-summary" id="household-stats" role="status" aria-live="polite">0 residents</div>
+              <div class="household-list" id="household-list" aria-label="Apartment residents and invitations"></div>
+              <div id="invite-fallback" class="invite-fallback hidden" role="status">
+                <p>Invitation created, but email could not be sent. Copy the private link and send it yourself.</p>
+                <button class="mini" id="copy-invite-link" type="button">Copy invitation link</button>
+              </div>
             </section>
 
           <section class="panel" id="bill-details-panel" aria-labelledby="bill-title">
@@ -248,6 +247,32 @@
       </div>
     </div>
   </footer>
+
+  <dialog class="og-modal og-member-modal" id="member-form-dialog" aria-labelledby="member-dialog-title" aria-describedby="member-dialog-description">
+    <div class="og-modal__content">
+      <div class="og-modal__header">
+        <span class="og-modal__symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M20 8v6m-3-3h6"/></svg></span>
+        <button class="og-modal__close" type="button" id="member-dialog-close" aria-label="Close dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <h2 class="og-modal__title" id="member-dialog-title">Add a resident</h2>
+      <p class="og-modal__description" id="member-dialog-description">Add someone to your apartment. Email is optional unless you want to invite them.</p>
+      <form class="member-dialog-form" id="member-dialog-form" novalidate>
+        <label class="field" for="member-name-input"><span>Resident name</span>
+          <input class="control" id="member-name-input" type="text" name="name" maxlength="70" autocomplete="off" required placeholder="Resident name">
+        </label>
+        <label class="field" for="member-email-input"><span>Email address (optional)</span>
+          <input class="control" id="member-email-input" type="email" name="email" maxlength="254" autocomplete="email" placeholder="Email address">
+        </label>
+        <p id="member-form-error" class="member-form-error hidden" role="alert"></p>
+        <div class="og-modal__actions member-dialog-actions">
+          <button type="button" class="og-modal__button og-modal__button--cancel" id="member-dialog-cancel">Cancel</button>
+          <button type="button" class="og-modal__button og-modal__button--cancel" id="member-add-only">Add only</button>
+          <button type="submit" class="og-modal__button og-modal__button--confirm" id="member-add-invite" disabled>Add &amp; invite</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.mjs"></script>
 </body>
