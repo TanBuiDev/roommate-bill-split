@@ -163,3 +163,13 @@ test("Historic mixed-rule rows retain their original rules until the user choose
  applyGroupRule(copy[0],"days");
  assert.equal(getGroupMethod(copy[0]),"days");
 });
+
+
+test("Whole-bill manual shares must match the exact sum of every charge",()=>{
+ const groups=[{...group("water","Cold water",true,[
+  fee("w","Water",350000,"manual"),fee("x","Service",50000,"manual")]),
+  people:{a:{manual:100000},b:{manual:100000},c:{manual:100000}}}];
+ const result=calculateSelection(groups,residents,day);
+ assert.equal(result.valid,false);
+ assert.match(result.error,/Manual shares must match/i);
+});
