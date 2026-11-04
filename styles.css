@@ -1048,3 +1048,82 @@ h3{font-size:1.2rem;font-weight:700}
   font-size:.72rem;padding:5px 3px;
  }
 }
+
+
+/* Unified billing flow — compact on mobile, no separate multi-fee tab. */
+#bill-details-panel,#summary-panel{display:none!important}
+#residents-panel .share-heading,#residents-panel .share-cell{display:none!important}
+#fee-mode-controls{display:none!important}
+.ub-intro,.ub-add-row,.ub-summary-head,.ub-form-head,.ub-dialog-head{display:flex;align-items:end;justify-content:space-between;gap:16px}
+.ub-intro{margin:0 0 16px;align-items:center}
+.ub-intro h4,.ub-summary h4,.ub-form h4{margin:0;font-size:1.18rem}
+.ub-intro p{margin:6px 0 0;color:var(--muted,#666);line-height:1.5}
+.ub-month-label{max-width:205px;flex:0 0 205px}
+.ub-add-row{align-items:end}
+.ub-category{min-width:0;flex:1}
+.ub-add-row>.button{flex:0 0 auto;min-height:48px}
+.ub-category-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px}
+.ub-category-actions .mini{min-height:38px}
+.ub-form{border:1.5px solid #1d1d1d;border-radius:16px;margin:20px 0;padding:18px;background:var(--surface,#fff)}
+.ub-form-head{align-items:center;margin-bottom:18px}
+.ub-fee-field{padding:14px 0;border-top:1px solid #e9e9e9}
+.ub-fee-field:first-child{border-top:0;padding-top:0}
+.ub-fee-settings{display:flex;gap:10px;margin-top:9px}
+.ub-fee-settings>.field{flex:1}
+.ub-resident-details{margin-top:12px;border:1px solid #e4e4e4;border-radius:10px;padding:10px 12px}
+.ub-resident-details summary{cursor:pointer;font-weight:650}
+.ub-person-row{display:flex;align-items:center;gap:12px;margin:9px 0;min-height:40px}
+.ub-person-row input[type=checkbox]{width:20px;height:20px;accent-color:#111}
+.ub-person-row input[type=number]{max-width:140px;margin-left:auto}
+.ub-person-row small{margin-left:auto;color:#666}
+.ub-form-total,.ub-summary-total{display:flex;justify-content:space-between;gap:14px;border-top:1px solid #e4e4e4;padding:16px 0}
+.ub-form-total strong{font-size:1.35rem}
+.ub-summary{margin-top:22px;padding-top:20px;border-top:1px solid #dfdfdf}
+.ub-summary-head{align-items:center;margin-bottom:14px}
+.ub-summary-head .tag{min-width:30px;text-align:center}
+.ub-list{display:grid;gap:10px}
+.ub-bill-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;gap:10px;border:1px solid #ddd;border-radius:12px;padding:12px}
+.ub-bill-row>input[type=checkbox]{height:22px;width:22px;accent-color:#141414}
+.ub-bill-description{display:grid;gap:3px;min-width:0}
+.ub-bill-description strong{overflow-wrap:anywhere}
+.ub-bill-description small{font-size:.79rem;color:#696969;line-height:1.45}
+.ub-bill-amount{white-space:nowrap;font-size:.96rem}
+.ub-excluded{opacity:.54}
+.ub-summary-total{background:#f6f6f6;padding:16px;border-radius:12px;margin-top:17px;border:0;flex-wrap:wrap}
+.ub-summary-total>div{display:grid;gap:6px}
+.ub-summary-total span{font-size:.82rem;color:#555}
+.ub-summary-total strong{font-size:1.34rem}
+.ub-summary-total>div:nth-child(2) strong{font-size:1.03rem;color:#555}
+.ub-summary .fee-breakdown{margin:18px 0}
+.ub-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ub-actions #ub-copy-last{grid-column:1/-1}
+.ub-actions #ub-save{grid-column:1/-1}
+.ub-type-dialog{width:min(580px,calc(100vw - 30px))}
+.ub-type-dialog .og-modal__content{max-height:calc(100dvh - 52px);overflow:auto}
+.ub-dialog-head{align-items:center;margin-bottom:12px}
+.ub-dialog-head h3{margin:0}
+.ub-type-line{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.ub-type-line input{min-width:0;flex:1}
+#ub-type-items{margin-bottom:16px}
+#ub-type-save{width:100%;margin-top:14px}
+#residents-panel .member-table{min-width:650px}
+@media(max-width:680px){
+ .ub-intro{display:grid}
+ .ub-month-label{max-width:none;flex:auto}
+ .ub-add-row{display:grid;grid-template-columns:minmax(0,1fr)}
+ .ub-add-row>.button{width:100%}
+ .ub-category-actions{display:grid;grid-template-columns:1fr}
+ .ub-form{padding:13px;margin:15px 0}
+ .ub-bill-row{grid-template-columns:22px minmax(0,1fr) auto;gap:8px}
+ .ub-bill-amount{grid-column:3;grid-row:1;font-size:.87rem}
+ .ub-bill-row>.mini{grid-row:2}
+ .ub-bill-row>.mini:nth-last-child(2){grid-column:2}
+ .ub-bill-row>.mini:last-child{grid-column:3}
+ .ub-actions{grid-template-columns:1fr}
+ .ub-actions>*{grid-column:auto!important}
+ .ub-summary-total strong{font-size:1.16rem}
+}
+@media(max-width:380px){
+ .ub-summary-total{display:grid}
+ .ub-bill-row{padding:10px;gap:6px}
+}
