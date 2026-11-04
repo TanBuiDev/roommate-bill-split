@@ -1,28 +1,92 @@
-name: Unified billing regression
+name: Test and deploy O Ghep
 
 on:
   push:
-    branches: [main, feat/unified-billing-flow]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: oghep-pages-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
+    name: Validate application and billing
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
       - name: Check JavaScript syntax
         run: |
-          node --check app.mjs
-          node --check fee-engine.mjs
-          node --check unified-billing-core.mjs
-          node --check unified-fee-ui.mjs
-          node --check i18n/dictionary.mjs
-      - name: Check billing calculations
-        run: node --test tests/unified-billing.test.mjs
+          set -euo pipefail
+          for file in *.mjs i18n/*.mjs; do
+            node --check "$file"
+          done
+      - name: Run billing regression tests
+        run: node --test tests/*.test.mjs
+
+  deploy:
+    name: Deploy Cloudflare Pages production
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required Cloudflare credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CF_TOKEN" ]; then
+            echo "::error title=Cloudflare token missing::Add CLOUDFLARE_API_TOKEN in repository Settings > Secrets and variables > Actions before production can deploy."
+            exit 1
+          fi
+
+      - name: Package only public site files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/i18n
+          cp index.html styles.css ./*.mjs dist/
+          cp i18n/*.mjs dist/i18n/
+          printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/deploy-version.json
+          test -f dist/index.html
+          test -f dist/unified-fee-ui.mjs
+          test -f dist/i18n/dictionary.mjs
+          find dist -type f | sort
+
+      - name: Deploy to oghep.pages.dev
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 37f44fbbb3a0e19e54a87ffa70802fb2
+          command: pages deploy dist --project-name=oghep --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(printf '{"commit":"%s"}' "$GITHUB_SHA")"
+          for attempt in $(seq 1 12); do
+            published="$(curl --fail --silent --location --max-time 10 \
+              "https://oghep.pages.dev/deploy-version.json?commit=$GITHUB_SHA" || true)"
+            if [[ "$published" == "$expected" ]]; then
+              echo "Verified production deployment: $GITHUB_SHA"
+              exit 0
+            fi
+            echo "Production has not reported the new commit (attempt $attempt/12)."
+            sleep 5
+          done
+          echo "::error title=Production verification failed::Cloudflare deployment completed but the production URL did not return the expected commit."
+          exit 1
