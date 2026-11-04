@@ -1,6 +1,6 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
-  "Default (days)": "Mặc định",
+  "Default": "Mặc định",
   "Use the days configured above": "Sử dụng số ngày đã thiết lập",
   "Automatically uses section A. Changes to resident days recalculate this bill.": "Tự động lấy số ngày ở mục A. Khi thay đổi số ngày, kết quả sẽ được tính lại.",
   "One sharing rule for this bill": "Quy tắc chia cho toàn bộ hóa đơn",
