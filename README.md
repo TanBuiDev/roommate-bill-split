@@ -18,6 +18,7 @@ The equivalent Windows CMD environment assignment is set "CLOUDFLARE_ACCOUNT_ID=
 - index.html — semantic English landing, forms, dashboard and invitation acceptance.
 - styles.css — one consolidated monochrome stylesheet with responsive apartment components.
 - app.mjs — auth, apartments, members, invitations, bill calculations, history, payments.
+- ui-modal.mjs — reusable accessible branded confirmation / notice dialog; no native browser confirm or alert.
 - .gitignore — ignores Wrangler, local dependencies and secrets.
 
 No JavaScript secrets should ever be committed. The frontend contains only a publishable database key and is protected by database-level RLS.
@@ -40,6 +41,10 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 - Residents can select 1, 2, 3 or 4 weeks (7/14/21/28 days) or custom number of days.
 - Money is allocated with integer arithmetic and largest remainder rounding so all shares sum exactly to the original bill.
 - Bills are stored atomically in a single database function. Payment status is preserved when overwriting a matching bill.
+
+## Shared modal
+
+The application uses `confirmAction({title, message, confirmText, cancelText, tone})` from `ui-modal.mjs` for destructive actions and bill confirmation. It returns a `Promise<boolean>`; **only** pressing the explicit confirmation button returns `true`. Escape, backdrop click, close and Cancel return `false`. `showNotice({title, message})` is available for one-button messages. Style lives in `styles.css`, and the native `<dialog>` provides modal semantics and focus trapping (no default browser confirmation popup). No emoji icons or injected dynamic HTML are used.
 
 ## New database
 
