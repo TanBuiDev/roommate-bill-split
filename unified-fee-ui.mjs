@@ -520,7 +520,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const changed=apt!==apartment;
   apt=apartment;owner=ownerFlag;residents=roster||[];
   if(changed){month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
-  setVisible("fee-workspace",true);
+  setVisible("fee-workspace",owner);
   setVisible("fee-editor",owner);
   setVisible("fee-mode-controls",false);
   const [p,tpl]=await Promise.all([
