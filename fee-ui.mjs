@@ -258,6 +258,16 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
       const row=node("div","fee-history-payment"),info=node("div");
       info.append(node("strong",null,pay.resident_name));
       info.append(node("small",null,money(pay.amount)));
+      const individual=node("details","fee-person-breakdown");
+      individual.append(node("summary",null,t("View fee details")));
+      for(const fee of period.items||[]){
+       const share=(fee.allocations||[]).find(allocation=>allocation.resident_id===pay.resident_id)?.share||0;
+       if(!share)continue;
+       const feeRow=node("div","fee-person-breakdown-row");
+       feeRow.append(node("span",null,t(fee.name)),node("strong",null,money(share)));
+       individual.append(feeRow);
+      }
+      info.append(individual);
       const controls=node("div","fee-history-payment-actions");
       const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
       controls.append(node("span","payment-badge "+pay.status,t(statuses[pay.status]||"Unpaid")));
