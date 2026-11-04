@@ -1,87 +1,75 @@
-# Ở Ghép — split bills, not friendships
+# Ở Ghép — shared apartment billing
 
-An English-language, responsive roommate expense-splitting web app with a bold, monochrome "Uber Bold Transit" landing design. No images, emojis, frontend framework, paid hosting, or Node build step required.
+A lightweight apartment billing app with a black-and-white Uber Bold Transit landing. All user-facing text in English; no public repository links in website navigation or footer.
 
-## Live URLs
+## URLs and deployment
 
-- Primary site: **https://oghep.pages.dev/**
-- Production source: `main` in [TanBuiDev/roommate-bill-split](https://github.com/TanBuiDev/roommate-bill-split)
-- Design preview: `https://design-alpha.oghep.pages.dev/` (as available)
-- Older Workers preview: `https://oghep.devbui058.workers.dev/`
+Production: https://oghep.pages.dev/
 
-**Deploy model:** Pages is a Direct Upload project, not automatically Git-connected. Changes on GitHub do not automatically update the site unless uploaded with Wrangler or the Pages deployment API. The design preview is a separate deployment.
+The production website is deployed to Cloudflare Pages through Direct Upload, **not** automatically on GitHub push. From the repository root, with the Cloudflare account signed in:
 
-## Source structure
+    export CLOUDFLARE_ACCOUNT_ID=37f44fbbb3a0e19e54a87ffa70802fb2
+    npx wrangler pages deploy . --project-name oghep --branch main
 
-```text
-index.html    accessible landing page, SEO / Open Graph metadata, app markup and inline SVG
-styles.css    single CSS source: tokens, layout, components, breakpoints and reduced motion
-app.mjs       browser-side logic: auth, roommate table, calculation, history, persistence
-.gitignore    excludes .wrangler/ and local build artifacts
-README.md     documentation
-```
+The equivalent Windows CMD environment assignment is set "CLOUDFLARE_ACCOUNT_ID=...".
 
-Do not reintroduce layered inline style blocks. Keep browser/server integrations and data handling in `app.mjs`. Keep new style rules in `styles.css`.
+## Application structure
 
-## Existing features
+- index.html — semantic English landing, forms, dashboard and invitation acceptance.
+- styles.css — one consolidated monochrome stylesheet with responsive apartment components.
+- app.mjs — auth, apartments, members, invitations, bill calculations, history, payments.
+- .gitignore — ignores Wrangler, local dependencies and secrets.
 
-- Email magic-link signup and login.
-- Select electricity, water, internet or other; choose month and billing period.
-- Enter total VND amount with empty default placeholder.
-- Default residents added once (without removing prior saved residents): Tấn, Tiến, Thành, Huy, Nhựt, Kiệt, Hậu.
-- Pick 1–4 weeks or custom number of days for each roommate.
-- Proportional division with integer remainder distribution; total of per-person shares equals the bill.
-- Add/edit/delete roommates and save duration choices.
-- Save, restore and delete monthly bills; mark individual payment status; copy a share summary.
-- Mobile layout turns each resident's 8-column row into a responsive grid card without page-wide horizontal scrolling.
+No JavaScript secrets should ever be committed. The frontend contains only a publishable database key and is protected by database-level RLS.
 
-The public landing includes three feature cards, three clearly **illustrative scenarios (not actual reviews)**, three **free usage modes (not different paid plans)**, a final call-to-action, privacy/terms information and real GitHub links.
+## Apartment workflow
 
-## Accounts / backend
+1. Sign in by email magic link (existing Auth email provider).
+2. Create an apartment. The server assigns a unique code (OG-...); this code is **not** an access credential.
+3. When creating a new apartment, owners can choose to import existing resident records. The legacy import is deduplicated by normalized name and prioritizes non-default duration selections. No legacy rows are deleted.
+4. Add or edit apartment residents. Only the owner may modify the roster, billing-period inputs and bill history.
+5. Invite a resident by email. The server generates a 256-bit random invite token, stores only its SHA-256 hash, and expires it after 7 days. The invited recipient must verify the matching email before joining. Invitation email is currently sent as an **authentication sign-in/confirmation link** through the existing email service, with the private invite token in the return URL. A copy-link fallback is available if the email service hits quota or fails.
+6. Members can view shared bill history and report **their own** payments. The owner confirms receipt; a member cannot independently mark themselves as paid/received.
+7. Apartment owners can remove member access and revoke pending invites.
 
-Backend: existing Supabase project `loovjgylbookhouxjkaf` with existing, RLS-protected tables:
+## Billing behavior
 
-- `room_members` (owner, name, sort order, selected week/custom duration)
-- `room_preferences` (seeded residents marker)
-- `bill_history` (owner, bill type, month, amount, duration snapshot, payment statuses)
+- Currency entry dynamically formats thousands groups in the vi-VN convention, e.g. 160.000.000.
+- Month field derives calendar days automatically, including leap years.
+- Optional meter-reading start and end dates override month length (inclusive date range).
+- Residents can select 1, 2, 3 or 4 weeks (7/14/21/28 days) or custom number of days.
+- Money is allocated with integer arithmetic and largest remainder rounding so all shares sum exactly to the original bill.
+- Bills are stored atomically in a single database function. Payment status is preserved when overwriting a matching bill.
 
-Client code only contains a public publishable key. **Never commit service-role, SMTP, Resend or Cloudflare API secrets.** Data and authentication are not part of the visual redesign.
+## New database
 
-SMTP sends signup confirmation and email login messages via the provider already configured in the project's Auth settings. Hosted email templates are managed separately in Supabase; the web redesign does not update them.
+New tables (all RLS enabled): apartments, apartment_members, apartment_residents, apartment_invitations, apartment_bills, apartment_allocations.
 
-## Local development
+SQL RPCs:
+- create_apartment
+- create_apartment_invitation
+- accept_apartment_invitation
+- revoke_apartment_invitation
+- remove_apartment_member
+- save_apartment_bill
+- mark_apartment_payment_sent
 
-The browser imports an ES module, so run a local server rather than opening `index.html` with `file://`.
+All privileged RPCs check authentication and enforce owner or member role. Invitation acceptance additionally verifies the recipient email matches. The unique resident name index prevents repeating the same resident in one apartment.
 
-```sh
-python -m http.server 8080
-```
+Legacy tables remain unchanged: room_members, room_preferences, bill_history. A private backup of the old room_members data exists in app_private.legacy_member_backup. **Do not drop legacy tables or backup until data has been verified and an intentional migration plan is agreed.**
 
-Open http://localhost:8080/. A recent browser with JavaScript and an internet connection is needed for the auth module. Configure the local development URL in Auth Redirect URLs if you need to test login locally.
+## Regression tests/checklist
 
-## Deployment
+- Login/signout and email links; accept invite with invited email, reject other email.
+- Create apartment, show apartment code, choose/switch apartments.
+- Import legacy names: seven unique Tấn, Tiến, Thành, Huy, Nhựt, Kiệt, Hậu from 21 duplicated rows without modifying originals.
+- Verify owner-only actions; member can read but cannot create/edit bills or manage residents.
+- Invite, revoke, expiry, one-time acceptance and owner/remove access.
+- Number grouping while typing; no invalid amount; 28/29/30/31 day calendar months.
+- Week shortcuts and custom-day values; persistence across reload.
+- Exact sharing across seven equal residents, mixed weeks, zero days and rounding.
+- Save, reload, overwrite, delete bills; preserve status; report paid, confirm receipt.
+- Mobile layout down to 320px; keyboard labels; no emoji or public repository links.
+- End-to-end authentication and multi-user invitation need real browser accounts to verify fully.
 
-Log in to the Cloudflare account owning `oghep`. From the repository root:
-
-```sh
-git pull --ff-only
-export CLOUDFLARE_ACCOUNT_ID=37f44fbbb3a0e19e54a87ffa70802fb2
-npx wrangler pages deploy . --project-name oghep --branch main
-```
-
-Windows **CMD** uses `set "CLOUDFLARE_ACCOUNT_ID=..."`, whereas **Git Bash** uses `export`.
-
-Verify the returned deployment URL, then visit https://oghep.pages.dev/. The `.wrangler/` directory is ignored in Git.
-
-## Regression checklist
-
-1. Authentication sign-in, redirect to the correct domain, persistence across refresh and sign-out.
-2. Seven default residents seeded once; prior saved residents and bill history preserved.
-3. Edit/add/remove residents; pick 1–4 weeks and custom days; page refresh retains week/custom choices.
-4. Enter a VND amount; verify per-person shares add up **exactly** to the bill, including odd amounts and 0-day residents.
-5. Save a new bill, overwrite a previous bill, restore, delete, and mark shares as paid.
-6. Copy results from a supported browser.
-7. Responsive and keyboard operation at 320px, 375px, 768px, 1024px and desktop widths; no page-wide horizontal scroll.
-8. No emoji icons, leaked infrastructure branding, fabricated quotes, or ungrounded subscription offers in the visible page.
-
-The calculation is a shared **convention**, not direct measurement of utilities; the app does not accept real payments. 
+The application does not process real money or determine actual individual meter consumption.
