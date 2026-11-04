@@ -328,6 +328,13 @@ export const vi = {
   "Owner account": "Tài khoản chủ căn hộ",
   "You're included in the bill.": "Đã thêm bạn vào danh sách chia tiền.",
   "Could not include the owner in the bill.": "Không thể thêm chủ căn hộ vào danh sách chia tiền.",
-  "This name belongs to a linked resident.": "Tên này đã được liên kết với tài khoản khác."
+  "This name belongs to a linked resident.": "Tên này đã được liên kết với tài khoản khác.",
+  "Exclude me from bills": "Không tính tiền cho tôi",
+  "Stop including yourself in bills?": "Ngừng chia tiền cho bạn?",
+  "Your apartment owner access will remain active. Saved bills keep their previous amounts.": "Bạn vẫn giữ quyền chủ căn hộ. Các hóa đơn đã lưu không thay đổi.",
+  "Exclude me": "Không tính tiền cho tôi",
+  "Keep me included": "Tiếp tục tính tiền cho tôi",
+  "Could not update your billing participation.": "Không thể cập nhật việc tham gia chia tiền của bạn.",
+  "You're no longer included in new bills.": "Bạn sẽ không được tính trong các hóa đơn mới."
 };
 export const en = Object.freeze({});
