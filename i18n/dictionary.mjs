@@ -319,6 +319,15 @@ export const vi = {
   "Member access removed.": "Đã thu hồi quyền truy cập của thành viên.",
   "No email linked": "Chưa liên kết email",
   "Remove access before deleting this resident.": "Hãy thu hồi quyền truy cập trước khi xóa người ở này.",
-  "Could not revoke this resident's invitation.": "Không thể thu hồi lời mời của người ở này."
+  "Could not revoke this resident's invitation.": "Không thể thu hồi lời mời của người ở này.",
+  "Add yourself to the bill": "Thêm bạn vào phần chia tiền",
+  "You're already the apartment owner. Enter the name you want shown on bills; no invitation is needed.": "Bạn đã là chủ căn hộ. Nhập tên muốn hiển thị trên hóa đơn, không cần gửi lời mời.",
+  "Include me in bills": "Tính tiền cho tôi",
+  "Included in bills": "Đã tham gia chia tiền",
+  "Apartment owner": "Chủ căn hộ",
+  "Owner account": "Tài khoản chủ căn hộ",
+  "You're included in the bill.": "Đã thêm bạn vào danh sách chia tiền.",
+  "Could not include the owner in the bill.": "Không thể thêm chủ căn hộ vào danh sách chia tiền.",
+  "This name belongs to a linked resident.": "Tên này đã được liên kết với tài khoản khác."
 };
 export const en = Object.freeze({});
