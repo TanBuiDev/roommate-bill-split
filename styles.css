@@ -123,8 +123,6 @@ h3{font-size:1.2rem;font-weight:700}
 .moneybox input{background:none;border:0;outline:0;min-width:0;width:100%;font-weight:700;font-size:1.3rem;appearance:textfield}
 .moneybox input::-webkit-outer-spin-button,.moneybox input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .moneybox strong{font-size:.9rem;color:#777}
-.billing-period{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:.8rem;color:#666}
-.billing-period input{width:82px;min-height:39px;text-align:center}
 .table-intro{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;color:#777;margin-bottom:13px}
 .table-intro strong{color:#151515}
 .member-board{border:1px solid var(--border);border-radius:var(--radius-card);overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
