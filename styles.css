@@ -555,3 +555,20 @@ h3{font-size:1.2rem;font-weight:700}
  .member-dialog-actions #member-add-only[hidden]{display:none}
  .member-dialog-actions #member-add-only[hidden]+#member-add-invite{grid-column:1/-1}
 }
+
+/* Apartment owner is always an authenticated member, even when not charged. */
+.household-row--owner{
+  background:#f9f9f9;
+  border-bottom:1px solid #e5e5e5;
+}
+.household-row--owner .household-avatar{
+  background:#171717;
+  color:white;
+}
+.household-owner-included{
+  font-size:.73rem;
+  color:#4b4b4b;
+  font-weight:600;
+  text-align:right;
+}
+.og-member-modal .member-dialog-form .field.hidden{display:none!important}
