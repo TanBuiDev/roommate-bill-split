@@ -681,3 +681,9 @@ h3{font-size:1.2rem;font-weight:700}
 @media(prefers-reduced-motion:reduce){
  .fee-mode-button{transition:none}
 }
+
+.fee-breakdown{border:1px solid #e3e3e3;border-radius:13px;padding:16px;background:#fff}
+.fee-breakdown h4{font-size:1rem;margin:0 0 12px;font-weight:750}
+.fee-breakdown-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0;font-size:.9rem}
+.fee-breakdown-row+.fee-breakdown-row{border-top:1px solid #eee}
+.fee-breakdown-row strong{white-space:nowrap;font-weight:760}
