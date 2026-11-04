@@ -8,7 +8,7 @@
 @media(max-width:420px){.bill-grid{grid-template-columns:1fr}.bill-grid .amount-field{grid-column:auto}.sum-stat{min-width:45%}.sum-actions button{font-size:12px}}
 </style></head><body>
 <div class="shell">
-<header class="top"><div class="brand-mark" style="font-size:16px;font-weight:850" aria-hidden="true">OG</div><div class="brand-copy"><strong>Ở Ghép</strong><span>Quản lý chi phí phòng</span></div><span id="sync-chip" class="offline-pill">Đang kết nối</span><button class="ghost hidden" id="signout" type="button">Đăng xuất</button></header>
+<header class="top"><div class="mark" style="font-size:15px;font-weight:850" aria-hidden="true">OG</div><div class="brand"><strong>Ở Ghép</strong><small>Quản lý chi phí phòng</small></div><span id="sync-chip" class="offline-pill">Đang kết nối</span><button class="ghost hidden" id="signout" type="button">Đăng xuất</button></header>
 <div id="loading" class="loading">Đang kết nối đến máy chủ...</div>
 <section id="auth" class="auth card hidden"><h2>Đăng nhập</h2><p>Đăng nhập để quản lý người ở và lịch sử hóa đơn.</p><form id="login-form"><label for="email">Email của bạn</label><input required type="email" id="email" class="control" autocomplete="email" placeholder="Nhập email"><button type="submit" id="login-button" class="button primary">Gửi liên kết đăng nhập</button></form><p id="authmsg" class="authmsg" role="status"></p><p class="data-note">Mở liên kết được gửi đến email để đăng nhập. Dữ liệu của bạn được lưu riêng, đồng bộ trên các thiết bị.</p></section>
 <main id="workspace" class="hidden">
@@ -46,8 +46,8 @@ let user = null, people = [], history = [], shown = new Set(), saveTimer, writeQ
 let draft={type:"electric",month:ym,amount:"",days:30};
 function toast(message){const e=$("#toast");e.textContent=message;e.classList.add("show");clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>e.classList.remove("show"),3500)}
 function el(tag,cls,value){const x=document.createElement(tag);if(cls)x.className=cls;if(value!==undefined)x.textContent=value;return x}
-function readDraft(){try{const v=JSON.parse(localStorage.getItem("oghep-draft:"+user.id));if(v&&types[v.type]&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v.month)){draft.type=v.type;draft.month=v.month;draft.amount=Number.isSafeInteger(+v.amount)&&+v.amount>=0?String(v.amount):"";draft.days=Number.isInteger(v.days)&&v.days>=1&&v.days<=366?v.days:30}}catch{}}
-function writeDraft(){if(user)localStorage.setItem("oghep-draft:"+user.id,JSON.stringify(draft))}
+function readDraft(){try{const v=JSON.parse(localStorage.getItem("oghep-draft:"+user.id));if(v&&types[v.type]&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v.month)){draft.type=v.type;draft.month=v.month;draft.amount="";draft.days=Number.isInteger(v.days)&&v.days>=1&&v.days<=366?v.days:30}}catch{}}
+function writeDraft(){if(user)localStorage.setItem("oghep-draft:"+user.id,JSON.stringify({...draft,amount:""}))}
 function days(p){if(p.mode==="full")return draft.days;if(p.mode==="custom")return Math.min(draft.days,Math.max(0,Math.trunc(Number(p.customDays))||0));const w=Number(String(p.mode).slice(1));return Math.min(draft.days,[1,2,3,4].includes(w)?w*7:28)}
 function split(){const amount=Number(draft.amount);if(!Number.isSafeInteger(amount)||amount<=0||!people.length)return null;const entries=people.map((p,i)=>({id:p.id,name:p.name.trim()||"Chưa đặt tên",days:days(p),mode:p.mode,customDays:p.customDays,index:i}));const totalDays=entries.reduce((s,p)=>s+p.days,0);if(!totalDays)return null;let given=0;const x=entries.map(p=>{const raw=amount*p.days/totalDays;const floor=Math.floor(raw);given+=floor;return {...p,share:floor,remain:raw-floor}});x.sort((a,b)=>b.remain-a.remain||a.index-b.index);for(let i=0;i<amount-given;i++)x[i].share++;return x.sort((a,b)=>a.index-b.index)}
 function renderMembers(){const root=$("#members");root.replaceChildren();$("#member-count").textContent=people.length+" người";
