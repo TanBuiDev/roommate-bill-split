@@ -481,3 +481,37 @@ h3{font-size:1.2rem;font-weight:700}
   .og-modal[open]{animation:none}
   .og-modal__button,.og-modal__close{transition:none}
 }
+
+
+/* Header language switch — stays visible on desktop and mobile. */
+.lang-switch{
+ display:inline-flex;align-items:center;gap:2px;flex:none;padding:3px;
+ background:#efefef;border:1px solid #dedede;border-radius:999px;
+}
+.lang-switch__button{
+ display:inline-flex;justify-content:center;align-items:center;
+ min-width:36px;min-height:32px;padding:6px 9px;
+ background:transparent;border:0;border-radius:999px;
+ color:#555;font-size:.72rem;line-height:1.2;font-weight:750;
+ cursor:pointer;transition:background-color .2s ease,color .2s ease,box-shadow .2s ease;
+}
+.lang-switch__button:hover:not([aria-pressed="true"]){background:#ddd;color:#111}
+.lang-switch__button[aria-pressed="true"]{background:#161616;color:white;box-shadow:0 2px 7px #0002}
+.lang-switch__button:focus-visible{outline:2px solid #111;outline-offset:3px}
+@media(max-width:820px){
+ .nav-actions{gap:7px}
+ .lang-switch__button{min-width:33px;padding:6px 7px}
+}
+@media(max-width:560px){
+ .nav-actions>.btn{display:none}
+ .header-inner{gap:9px}
+ .nav-signout{padding:9px 11px;font-size:.75rem}
+}
+@media(max-width:360px){
+ .brand{gap:6px;font-size:1.05rem}
+ .brand-mark{width:33px;height:33px}
+ .lang-switch__button{min-width:30px;padding:6px 5px}
+}
+@media(prefers-reduced-motion:reduce){
+ .lang-switch__button{transition:none}
+}
