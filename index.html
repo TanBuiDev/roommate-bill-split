@@ -149,6 +149,54 @@
               </div>
             </section>
 
+          <section class="panel fee-workspace" id="fee-workspace" aria-labelledby="fee-title">
+            <div class="panel-header">
+              <span class="step-number">02</span>
+              <div><h3 id="fee-title">Multi-fee billing periods</h3><p>Combine several charges and choose a separate sharing rule for each one.</p></div>
+            </div>
+            <div id="fee-mode-controls" class="fee-mode-controls hidden" role="group" aria-label="Billing mode">
+              <button type="button" id="fee-simple-mode" class="fee-mode-button active" aria-pressed="true">Simple bill</button>
+              <button type="button" id="fee-composite-mode" class="fee-mode-button" aria-pressed="false">Multi-fee period</button>
+            </div>
+            <div id="fee-editor" class="fee-editor hidden">
+              <div class="fee-start">
+                <div class="fee-start-head"><h4>Start a billing period</h4><p>Choose a template, copy last month, or start with a blank period.</p></div>
+                <div class="fee-start-tools">
+                  <label class="field" for="fee-template-select"><span>Available templates</span>
+                    <select class="control" id="fee-template-select"></select></label>
+                  <button type="button" id="fee-apply-template" class="button primary">Use template</button>
+                  <button type="button" id="fee-copy-previous" class="button secondary">Copy previous period</button>
+                  <button type="button" id="fee-start-blank" class="button secondary">Start blank</button>
+                </div>
+              </div>
+              <div class="fee-period-fields">
+                <label class="field" for="fee-period-month"><span>Billing month</span><input class="control" id="fee-period-month" type="month"></label>
+                <label class="field" for="fee-period-name"><span>Period name</span><input class="control" id="fee-period-name" type="text" maxlength="100" placeholder="e.g. Apartment fees"></label>
+              </div>
+              <div class="fee-line-header"><h4>Fee items</h4><button type="button" id="fee-add-item" class="mini">Add fee item</button></div>
+              <div id="fee-items" class="fee-items" aria-live="polite"></div>
+              <div class="fee-total"><span>Total fees</span><strong id="fee-total-value">0 ₫</strong></div>
+              <p id="fee-error" class="summary-error" role="alert"></p>
+              <div class="fee-editor-actions">
+                <button type="button" id="fee-share" class="button secondary">Share breakdown</button>
+                <button type="button" id="fee-save-period" class="button primary">Save billing period</button>
+              </div>
+              <div class="fee-template-save">
+                <label class="field" for="fee-save-template-name"><span>Save your own reusable template</span>
+                  <input class="control" id="fee-save-template-name" type="text" maxlength="80" placeholder="Template name"></label>
+                <button type="button" id="fee-save-template" class="button secondary">Save as template</button>
+                <button type="button" id="fee-delete-template" class="mini hidden">Delete selected template</button>
+                <p class="data-note">Templates keep fee names and sharing rules, not previous amounts. Only members of this apartment can access its billing data.</p>
+              </div>
+            </div>
+            <div class="fee-history-wrap">
+              <div class="fee-history-head"><div><h4>Multi-fee history</h4><p>Saved periods, per-person breakdowns and payment status.</p></div>
+                <button id="fee-refresh" class="mini" type="button">Refresh</button>
+              </div>
+              <div id="fee-history" class="fee-history"><p class="muted">No multi-fee periods yet.</p></div>
+            </div>
+          </section>
+
           <section class="panel" id="bill-details-panel" aria-labelledby="bill-title">
             <div class="panel-header"><span class="step-number">01</span><div><h3 id="bill-title">Bill details</h3><p>Select a bill type, billing month and total amount</p></div></div>
             <div class="bill-grid">
