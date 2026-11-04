@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
+import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
+initI18n();
 const SITE="https://oghep.pages.dev";
 const SUPA_URL="https://loovjgylbookhouxjkaf.supabase.co";
 const SUPA_KEY="sb_publishable_i-HRVZm2rY7SUl1w-iJAdA_KAPi2H8h";
@@ -16,6 +18,7 @@ const el=(tag,cls,value)=>{const x=document.createElement(tag);if(cls)x.classNam
 const fmt=x=>Number(x||0).toLocaleString("vi-VN");
 const money=x=>fmt(x)+" ₫";
 const types={electric:"Electricity",water:"Water",internet:"Internet",other:"Other"};
+const typeName=(code)=>t(types[code]||"Bill");
 const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")};
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
  shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
@@ -23,8 +26,8 @@ const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invi
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0)};
 let toastTimer=0;
 function toast(message){
- const t=$("#toast");t.textContent=message;t.classList.add("show");
- clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),3800);
+ const element=$("#toast");element.textContent=t(message);element.classList.add("show");
+ clearTimeout(toastTimer);toastTimer=setTimeout(()=>element.classList.remove("show"),3800);
 }
 function errorNotice(message,error){if(error)console.error(message,error);toast(message)}
 const isOwner=()=>state.owner;
@@ -161,7 +164,7 @@ function renderResidentTable(){
   input.addEventListener("input",()=>{p.mode="custom";p.custom_days=Math.max(0,Math.min(billingPeriod().days,Math.trunc(Number(input.value))||0));changedResident(p);renderResult()});
   input.addEventListener("change",()=>{input.value=String(p.custom_days)});
   td.append(input);row.append(td);
-  const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days","0 days");
+  const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days",t("0 days"));
   val.dataset.shareId=p.id;hint.dataset.daysId=p.id;shareTd.append(val,hint);row.append(shareTd);
   const delTd=el("td");
   if(state.owner){
@@ -171,7 +174,7 @@ function renderResidentTable(){
   row.append(delTd);body.append(row);
  }
  if(!state.residents.length){
-  const row=el("tr"),td=el("td","muted","No residents yet. Add one above.");td.colSpan=8;row.append(td);body.append(row);
+  const row=el("tr"),td=el("td","muted",t("No residents yet. Add one above."));td.colSpan=8;row.append(td);body.append(row);
  }
  renderInviteOptions();renderResult();
 }
@@ -203,7 +206,7 @@ async function addResident(e){
 }
 function renderInviteOptions(){
  const select=$("#invite-resident");select.replaceChildren();
- const empty=el("option",null,"Choose a resident");empty.value="";select.append(empty);
+ const empty=el("option",null,t("Choose a resident"));empty.value="";select.append(empty);
  state.residents.filter(r=>!r.user_id).forEach(r=>{const option=el("option",null,r.name);option.value=r.id;select.append(option)});
 }
 
@@ -216,7 +219,7 @@ function renderAccess(){
   const line=el("div","access-item");
   line.append(el("span",null,(m.role==="owner"?"You (owner)":r?.name||known?.invited_email||"Linked member")+" · "+m.role));
   if(m.role!=="owner"){
-   const remove=el("button","mini","Remove access");
+   const remove=el("button","mini",t("Remove access"));
    remove.addEventListener("click",async()=>{
     const confirmed=await confirmAction({
      title:"Remove member access?",
@@ -235,11 +238,11 @@ function renderAccess(){
   root.append(line);
  }
  const pending=state.invitations.filter(x=>x.status==="pending"&&new Date(x.expires_at)>new Date());
- if(!pending.length)invites.append(el("p","muted","No pending invitations."));
+ if(!pending.length)invites.append(el("p","muted",t("No pending invitations.")));
  for(const invitation of pending){
   const line=el("div","access-item");
   line.append(el("span",null,invitation.invited_email+" · expires "+new Date(invitation.expires_at).toLocaleDateString("en-GB")));
-  const revoke=el("button","mini","Revoke");
+  const revoke=el("button","mini",t("Revoke"));
   revoke.addEventListener("click",async()=>{
    const confirmed=await confirmAction({
     title:"Revoke invitation?",
@@ -294,16 +297,16 @@ function renderAptOptions(){
 }
 function renderGate(){
  const root=$("#apartment-list");root.replaceChildren();
- if(state.apts.length)root.append(el("p","muted","Your apartments"));
+ if(state.apts.length)root.append(el("p","muted",t("Your apartments")));
  for(const a of state.apts){
   const btn=el("button","apartment-choice",a.name+" · "+a.code);
   btn.type="button";btn.addEventListener("click",()=>loadApartment(a.id));
   root.append(btn);
  }
- if(!state.apts.length)root.append(el("p","muted","No apartment yet. Create one to get started."));
+ if(!state.apts.length)root.append(el("p","muted",t("No apartment yet. Create one to get started.")));
  const token=sessionStorage.getItem("oghep-invite");
  show("#invitation-banner",!!token);
- label("#invitation-message","Accept this invitation after signing in with the invited email address.");
+ label("#invitation-message",t("Accept this invitation after signing in with the invited email address."));
 }
 function showGate(){
  state.apt=null;state.owner=false;
@@ -345,7 +348,7 @@ async function loadUser(user,force=false,preferred=null){
  const work=(async()=>{
   state.user=user;
   show("#loading",false);show("#auth",false);show("#workspace",true);show("#signout",true);
-  label("#sync-chip","Connected");$("#sync-chip").classList.add("connected");
+  label("#sync-chip",t("Connected"));$("#sync-chip").classList.add("connected");
   const a=await db.from("apartments").select("id,code,name,owner_id,created_at").order("created_at",{ascending:false});
   if(seq!==state.loadSeq)return;
   if(a.error)return errorNotice("Could not load apartments.",a.error);
@@ -396,7 +399,7 @@ async function loadApartment(id){
 function renderHistory(){
  const root=$("#history");root.replaceChildren();
  label("#history-count",state.bills.length+" periods");
- if(!state.bills.length){root.append(el("p","muted","No saved bills yet."));return}
+ if(!state.bills.length){root.append(el("p","muted",t("No saved bills yet.")));return}
  for(const bill of state.bills){
   const allocations=state.alloc[bill.id]||[];
   const panel=el("article","bill"),line=el("div","bill-line"),desc=el("div","bill-desc");
@@ -408,9 +411,9 @@ function renderHistory(){
   toggle.addEventListener("click",()=>{state.shown.has(bill.id)?state.shown.delete(bill.id):state.shown.add(bill.id);renderHistory()});
   actions.append(toggle);
   if(state.owner){
-   const edit=el("button","mini","Edit");
+   const edit=el("button","mini",t("Edit"));
    edit.addEventListener("click",()=>loadSavedBill(bill));
-   const del=el("button","mini red","Delete");
+   const del=el("button","mini red",t("Delete"));
    del.addEventListener("click",()=>deleteBill(bill));actions.append(edit,del);
   }
   panel.append(actions);
@@ -423,7 +426,7 @@ function renderHistory(){
     const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
     right.append(el("span","payment-badge "+item.status,statuses[item.status]||"Unpaid"));
     if(state.owner&&item.status==="submitted"){
-     const confirm=el("button","mini","Confirm receipt");
+     const confirm=el("button","mini",t("Confirm receipt"));
      confirm.addEventListener("click",async()=>{
       confirm.disabled=true;
       const {error}=await db.from("apartment_allocations").update({status:"confirmed"}).eq("id",item.id).eq("status","submitted");
@@ -435,7 +438,7 @@ function renderHistory(){
     }
     const mine=state.residents.find(r=>r.id===item.resident_id&&r.user_id===state.user?.id);
     if(!state.owner&&mine&&item.status==="unpaid"){
-     const report=el("button","mini","I have paid");
+     const report=el("button","mini",t("I have paid"));
      report.addEventListener("click",async()=>{
       report.disabled=true;
       const {error}=await db.rpc("mark_apartment_payment_sent",{p_allocation_id:item.id});
@@ -528,19 +531,19 @@ setInterval(refreshLogin,1000);
 async function login(e){
  e.preventDefault();if(state.loginBusy||Date.now()<state.loginUntil)return;
  const email=$("#email").value.trim();if(!email)return;
- state.loginBusy=true;refreshLogin();label("#authmsg","Sending a sign-in link...");
+ state.loginBusy=true;refreshLogin();label("#authmsg",t("Sending a sign-in link..."));
  try{
   const pending=sessionStorage.getItem("oghep-invite");
   const redirect=pending?SITE+"/?invite="+pending:SITE+"/";
   const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:redirect}});
   if(error)throw error;
   state.loginUntil=Date.now()+60000;
-  label("#authmsg","Check your inbox and spam folder for the sign-in link.");
+  label("#authmsg",t("Check your inbox and spam folder for the sign-in link."));
  }catch(err){
   if(err?.status===429||String(err?.code||"").includes("rate_limit")){
    state.loginUntil=Date.now()+30*60000;
-   label("#authmsg","Email sending is temporarily limited. Please try again in 30–60 minutes.");
-  }else{label("#authmsg","Could not send the sign-in link. Please try again.");console.error(err)}
+   label("#authmsg",t("Email sending is temporarily limited. Please try again in 30–60 minutes."));
+  }else{label("#authmsg",t("Could not send the sign-in link. Please try again."));console.error(err)}
  }finally{
   if(state.loginUntil)localStorage.setItem("oghep-login-backoff-v1",String(state.loginUntil));
   state.loginBusy=false;refreshLogin();
@@ -550,7 +553,7 @@ function signOutView(){
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
  state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
  show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
- label("#sync-chip","Signed out");$("#sync-chip").classList.remove("connected");
+ label("#sync-chip",t("Signed out"));$("#sync-chip").classList.remove("connected");
 }
 $("#login-form").addEventListener("submit",login);
 $("#signout").addEventListener("click",async()=>{
