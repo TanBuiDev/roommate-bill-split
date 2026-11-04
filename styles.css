@@ -861,3 +861,121 @@ h3{font-size:1.2rem;font-weight:700}
  }
  .fee-history-payment-actions .mini{white-space:normal;line-height:1.3}
 }
+
+
+/* Mobile-first bill action polish (2026-11): keep actions usable at narrow widths.
+   This block comes last so legacy desktop styles cannot force pill overflow. */
+@media(max-width:767px){
+  #residents-panel,#summary-panel,.history-panel{min-width:0}
+  #residents-panel .member-board{max-width:100%;min-width:0}
+  #residents-panel .member-table tr{
+    box-sizing:border-box;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:9px 7px;
+    padding:14px 12px;
+    min-width:0;
+  }
+  #residents-panel .member-table tr td{min-width:0;max-width:100%}
+  #residents-panel .member-table .week-choice{
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    height:auto;
+    padding:7px 3px;
+    white-space:normal;
+    overflow-wrap:break-word;
+    line-height:1.2;
+    font-size:clamp(.69rem,2.4vw,.8rem);
+    cursor:pointer;
+  }
+  #residents-panel .member-table tr td:nth-child(6),
+  #residents-panel .member-table tr td:nth-child(7){min-width:0}
+  #residents-panel .member-table .day-choice{
+    box-sizing:border-box;
+    min-height:42px;
+    width:100%;
+    max-width:130px;
+    font-size:.85rem;
+  }
+  #residents-panel .member-table .delete-person{
+    min-width:40px;min-height:40px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .history-panel .history-head,.history-panel .history-live-actions{min-width:0}
+  .history-panel .bill-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .history-panel .bill-actions .mini{
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    font-size:.79rem;
+    line-height:1.35;
+    padding:10px 8px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  .history-panel .paid-row>div{min-width:0}
+  .history-panel .payment-badge{max-width:100%;line-height:1.4}
+  .history-panel .payment-actions .mini{min-height:40px;max-width:100%}
+}
+@media(max-width:430px){
+  #summary-panel .sum-grid{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:12px;
+    padding:18px 16px;
+    min-width:0;
+  }
+  #summary-panel .sum-stat{
+    min-width:0;
+    width:100%;
+    display:block;
+  }
+  #summary-panel .sum-stat+.sum-stat{
+    padding-top:11px;
+    border-top:1px solid #dedede;
+  }
+  #summary-panel .sum-stat strong{
+    font-size:clamp(1.22rem,5.2vw,1.55rem);
+    letter-spacing:-.035em;
+    overflow-wrap:anywhere;
+  }
+  #summary-panel .sum-actions{
+    display:grid;
+    grid-column:1/-1;
+    grid-template-columns:minmax(0,1fr);
+    gap:9px;
+    width:100%;
+    min-width:0;
+    margin-top:3px;
+  }
+  #summary-panel .sum-actions #save{grid-column:1}
+  #summary-panel .sum-actions .button{
+    width:100%;
+    min-width:0!important;
+    max-width:100%;
+    min-height:46px;
+    box-sizing:border-box;
+    font-size:.89rem;
+    line-height:1.3;
+    padding:11px 14px;
+    justify-content:center;
+    text-align:center;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  #summary-panel .share-target-note{
+    font-size:.8rem;
+    margin-top:13px;
+    overflow-wrap:anywhere;
+  }
+  .history-panel .bill{padding:15px 13px}
+  .history-panel .bill-line{align-items:flex-start;gap:9px}
+  .history-panel .bill-money{max-width:46%;font-size:.84rem}
+  .history-panel .paid-row{grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:9px}
+  .history-panel .payment-actions{max-width:125px}
+  .history-panel .payment-badge{font-size:.72rem;padding:7px 9px}
+}
