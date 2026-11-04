@@ -359,8 +359,8 @@ export const vi = {
   "Breakdown shared.": "Đã chia sẻ kết quả.",
   "Share unavailable. Breakdown copied instead.": "Không thể mở chức năng chia sẻ. Đã sao chép kết quả thay thế.",
   "Sharing failed. Please try again.": "Chia sẻ thất bại. Vui lòng thử lại.",
-  "Bill saved. Resident days reset to 4 days.": "Đã lưu hóa đơn. Số ngày ở được đưa về 4 ngày.",
   "Bill saved, but default days could not be restored.": "Đã lưu hóa đơn, nhưng chưa thể đặt lại số ngày mặc định.",
-  "Defaults reset to 4 days.": "Đã đặt lại về mặc định 4 ngày."
+  "Bill saved. Resident weeks reset to 4 weeks.": "Đã lưu hóa đơn. Đã đặt lại số tuần ở mặc định là 4 tuần.",
+  "Status updates when you refresh or reload this page.": "Trạng thái được cập nhật khi nhấn Làm mới hoặc tải lại trang."
 };
 export const en = Object.freeze({});
