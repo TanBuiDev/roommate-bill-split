@@ -1519,7 +1519,7 @@ body.app-active .ub-bill-dialog #ub-form{
  margin:2px 0 0;padding:15px 0 0;border-top:1px solid #ececec
 }
 .ub-bill-dialog .ub-form-total strong{font-size:1.25rem}
-.ub-bill-footer{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;align-items:center}
+.ub-bill-footer{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;align-items:center;position:sticky;bottom:0;z-index:2;padding:12px 0 2px;background:#fff;border-top:1px solid #ededed}
 .ub-bill-footer .button{width:100%;min-width:0;min-height:46px;border-radius:12px}
 .ub-bill-dialog .ub-resident-details{margin:0;border-radius:12px}
 .ub-bill-dialog .ub-group-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
@@ -1660,6 +1660,7 @@ body.app-active #billing-history-panel .history-entry-actions .mini{
   border:0;border-radius:0
  }
  .ub-bill-dialog-inner,.history-detail-dialog-inner{padding:18px 14px}
+ .ub-bill-footer{padding:12px 0 8px}
  .ub-bill-dialog #ub-form-items{grid-template-columns:1fr}
  .ub-bill-dialog .ub-group-people{grid-template-columns:1fr}
  body.app-active #bill-summary-card .ub-breakdown-head{padding:13px 12px}
