@@ -112,7 +112,7 @@ export function calculateSelection(groups,residents,getDays){
  return result;
 }
 
-export function serializeSelection(groups,calculatedLines){
+export function serializeSelection(groups,calculatedLines,daysByResident={}){
  const allocations=new Map(calculatedLines.map(line=>[line.id,line.allocations]));
  const calculated=new Map(calculatedLines.map(line=>[line.id,line]));
  return groups.flatMap(group=>group.fees.map(fee=>{
@@ -130,6 +130,8 @@ export function serializeSelection(groups,calculatedLines){
    people:clone(source),
    allocations:group.enabled===false?[]:(allocations.get(fee.id)||[])
   };
+  // Immutable residency-day snapshot: independent of later changes to section A.
+  if(Object.keys(daysByResident).length)snapshot.resident_days=clone(daysByResident);
   if(standardized)snapshot.group_people=clone(group.people);
   if(fee.method==="days"){
    for(const p of Object.values(snapshot.people))delete p.included;

@@ -1,3 +1,17 @@
+## Consistent bill message export
+
+All **Copy bill** and **Share** operations (monthly draft, saved monthly periods, and legacy single bills) use one plain-text, mobile-friendly message layout:
+
+- `HÓA ĐƠN THÁNG 11/2026`, apartment name, then numbered bill types with grouped subtotals.
+- Print subfees only when multiple non-zero subfees exist or the subfee name differs from its parent type; never repeat `Tiền điện` twice just because the parent name and only child match.
+- Include only **checked** monthly bill types. Never export disabled types even if their original amount remains in the saved draft.
+- Show each resident **once** as `Tên (N ngày): tiền phải đóng`, and the grand total **once** at the bottom. Preserve exact engine/save allocations; different sharing methods are never re-divided when generating a message.
+- Save a per-resident `resident_days` snapshot in each JSONB fee row of all **newly saved periods**, before section A is reset, so previously saved messages are independent of later day settings. Existing historic monthly periods do not have this field: omit the unknown day counts and state why rather than inventing them from the live roster. Legacy bills already have immutable allocated-day snapshots.
+- Copy and Share are two delivery methods for the **same** formatted text. Draft exports are clearly marked unsaved.
+
+No new Supabase table, migration, or payment-state reset is needed for this change. The new snapshot is an additional JSONB property of the existing `items` payload, which the save RPC stores without rewriting old rows.
+
+
 # Ở Ghép — shared apartment billing
 
 A lightweight apartment billing app with a black-and-white Uber Bold Transit interface, Vietnamese/English translations, and no public repository links in website navigation or footer.

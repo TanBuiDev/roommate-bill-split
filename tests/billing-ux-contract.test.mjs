@@ -25,7 +25,9 @@ test("bill copy, share and save all have unique real controls",()=>{
  for(const id of ["ub-save","ub-copy-result","ub-share"])assert.equal(ui.match(new RegExp('id="'+id+'"',"g")).length,1);
  assert.ok(ui.includes('writeClipboard(summarize())'));
  assert.ok(ui.includes('shareText(summarize()'));
- assert.ok(ui.includes('Draft — not saved'));
+ assert.ok(ui.includes('draft:dirty||!existing()'));
+ assert.ok(ui.includes('formatBillMessage('));
+ assert.ok(ui.includes('const daysByResident=Object.fromEntries(residents.map(r=>[r.id,residentDays(r)]))'));
 });
 test("dashboard apartment name, role and live count are in one responsive card",()=>{
  assert.ok(html.includes('class="panel apartment-toolbar"'));
