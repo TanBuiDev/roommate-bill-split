@@ -17,7 +17,7 @@ const money=x=>fmt(x)+" ₫";
 const types={electric:"Electricity",water:"Water",internet:"Internet",other:"Other"};
 const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")};
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
- shown:new Set(),legacy:false,loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
+ shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0)};
 let toastTimer=0;
@@ -277,7 +277,6 @@ function renderGate(){
   root.append(btn);
  }
  if(!state.apts.length)root.append(el("p","muted","No apartment yet. Create one to get started."));
- show("#legacy-import-line",state.legacy);
  const token=sessionStorage.getItem("oghep-invite");
  show("#invitation-banner",!!token);
  label("#invitation-message","Accept this invitation after signing in with the invited email address.");
@@ -292,7 +291,7 @@ async function createApartment(e){
  if(name.length<2)return toast("Enter an apartment name.");
  button.disabled=true;
  try{
-  const {data,error}=await db.rpc("create_apartment",{p_name:name,p_import_legacy:state.legacy&&$("#import-legacy").checked});
+  const {data,error}=await db.rpc("create_apartment",{p_name:name,p_import_legacy:false});
   if(error)throw error;
   $("#new-apartment-name").value="";
   await loadUser(state.user,true,data.id);
@@ -323,13 +322,10 @@ async function loadUser(user,force=false,preferred=null){
   state.user=user;
   show("#loading",false);show("#auth",false);show("#workspace",true);show("#signout",true);
   label("#sync-chip","Connected");$("#sync-chip").classList.add("connected");
-  const [a,l]=await Promise.all([
-   db.from("apartments").select("id,code,name,owner_id,created_at").order("created_at",{ascending:false}),
-   db.from("room_members").select("id",{count:"exact",head:true})
-  ]);
+  const a=await db.from("apartments").select("id,code,name,owner_id,created_at").order("created_at",{ascending:false});
   if(seq!==state.loadSeq)return;
   if(a.error)return errorNotice("Could not load apartments.",a.error);
-  state.apts=a.data||[];state.legacy=!l.error&&(l.count||0)>0;
+  state.apts=a.data||[];
   renderAptOptions();
   if(sessionStorage.getItem("oghep-invite"))return showGate();
   const id=preferred||localStorage.getItem("oghep-active:"+user.id);
