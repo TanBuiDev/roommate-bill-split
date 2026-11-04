@@ -1,5 +1,6 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
+  "Close legacy editor": "Đóng chỉnh sửa hóa đơn cũ",
   "Monthly billing": "Thanh toán theo tháng",
   "Monthly summary": "Tổng hợp tháng",
   "Enter bills, choose which to include, and review each resident's total.": "Nhập hóa đơn, chọn các khoản cần tính và xem tổng tiền của từng thành viên.",
