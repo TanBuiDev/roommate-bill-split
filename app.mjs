@@ -175,6 +175,7 @@ function changedResident(p){
 function renderResidentTable(){
  const body=$("#members");body.replaceChildren();
  label("#member-count",t("{count} residents",{count:state.residents.length}));
+ label("#apartment-resident-count",t("{count} residents",{count:state.residents.length}));
  for(const [index,p] of state.residents.entries()){
   const row=el("tr"),cell=el("td");
   const name=el("input","member-name");name.value=p.name;name.maxLength=70;name.disabled=!state.owner;

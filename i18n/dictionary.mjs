@@ -1,5 +1,18 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
+  "Default (days)": "Mặc định",
+  "Use the days configured above": "Sử dụng số ngày đã thiết lập",
+  "Automatically uses section A. Changes to resident days recalculate this bill.": "Tự động lấy số ngày ở mục A. Khi thay đổi số ngày, kết quả sẽ được tính lại.",
+  "One sharing rule for this bill": "Quy tắc chia cho toàn bộ hóa đơn",
+  "Choose residents for equal sharing": "Chọn người tham gia chia đều",
+  "Enter quantities for each resident": "Nhập số lượng của từng người",
+  "Enter each resident's amount": "Nhập số tiền của từng người",
+  "Existing mixed rules (choose to unify)": "Quy tắc cũ khác nhau (chọn lại để thống nhất)",
+  "This saved bill used different sharing rules. Select one rule to unify it; the existing saved history remains unchanged.": "Hóa đơn cũ có các quy tắc khác nhau. Chọn một quy tắc để áp dụng chung; lịch sử đã lưu không thay đổi.",
+  "Use last month's template": "Dùng lại mẫu tháng trước",
+  "Copy bill as message": "Sao chép hóa đơn",
+  "Draft — not saved": "Bản nháp — chưa lưu",
+  "Choose apartment": "Chọn căn hộ",
   "A. Residents and days": "A. Người ở và số ngày",
   "Choose weekly shortcuts or exact days": "Chọn nhanh theo tuần hoặc nhập số ngày chính xác",
   "{count} residents · {days} day period": "{count} người ở · Cả kỳ {days} ngày",

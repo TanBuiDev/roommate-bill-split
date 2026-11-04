@@ -129,8 +129,28 @@
           </section>
           <div id="apartment-app" class="hidden">
             <section class="panel apartment-toolbar" aria-label="Apartment details">
-              <div class="apartment-current"><span class="section-kicker">CURRENT APARTMENT</span><h3 id="apartment-name">Apartment</h3><div class="meta-row"><span class="tag" id="apartment-code">OG-XXXXXXXXXX</span><span class="tag" id="apartment-role">Member</span><button id="copy-code" class="mini" type="button">Copy code</button></div></div>
-              <div class="apartment-switcher"><label for="apartment-select">Switch apartment</label><select id="apartment-select" class="control"></select><button id="manage-apartments" class="mini" type="button">Create another</button></div>
+              <div class="apartment-card-head">
+                <div><span class="section-kicker">Your workspace</span><h2>Apartment dashboard</h2><p>Manage residents and monthly bills in one place.</p></div>
+              </div>
+              <div class="apartment-card-main">
+                <div class="apartment-current">
+                  <span class="section-kicker">CURRENT APARTMENT</span>
+                  <h3 id="apartment-name">Apartment</h3>
+                  <div class="meta-row">
+                    <span class="tag" id="apartment-code">OG-XXXXXXXXXX</span>
+                    <span class="tag" id="apartment-role">Member</span>
+                    <span class="tag" id="apartment-resident-count">0 residents</span>
+                  </div>
+                </div>
+                <div class="apartment-switcher">
+                  <label for="apartment-select" class="sr-only">Choose apartment</label>
+                  <select id="apartment-select" class="control" aria-label="Choose apartment"></select>
+                </div>
+              </div>
+              <div class="apartment-card-actions">
+                <button id="copy-code" class="mini" type="button">Copy code</button>
+                <button id="manage-apartments" class="mini" type="button">Create another</button>
+              </div>
             </section>
             <section class="panel household-panel" id="owner-panel" aria-labelledby="household-title">
               <div class="household-head">

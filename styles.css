@@ -1270,3 +1270,176 @@ body.app-active #bill-history-current #fee-refresh{display:none!important}
  body.app-active .bill-resident-board .member-table tr td:nth-child(6),
  body.app-active .bill-resident-board .member-table tr td:nth-child(7){grid-column:span 2}
 }
+
+
+/* 2026 unified UI polish: preserve the approved resident-days table. */
+body.app-active .dashboard-head{display:none!important}
+body.app-active .apartment-toolbar{
+ display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;
+ gap:19px;padding:clamp(18px,2.6vw,28px);
+ border:1px solid #e1e1e1;border-radius:20px;
+ box-shadow:0 5px 22px rgba(0,0,0,.035);
+}
+.apartment-card-head{
+ display:flex;align-items:center;justify-content:space-between;gap:16px;
+ padding:0 0 16px;border-bottom:1px solid #ededed
+}
+.apartment-card-head .section-kicker{margin-bottom:8px}
+.apartment-card-head h2{font-size:clamp(1.25rem,2.2vw,1.65rem);margin:0 0 5px!important;letter-spacing:-.04em}
+.apartment-card-head p{font-size:.81rem;line-height:1.5;color:#707070;margin:0}
+.apartment-card-main{display:flex;gap:18px;align-items:center;justify-content:space-between;min-width:0}
+body.app-active .apartment-current{min-width:0}
+body.app-active .apartment-current h3{
+ font-size:clamp(1.35rem,2.8vw,1.9rem);letter-spacing:-.035em;line-height:1.2;
+ margin:4px 0 12px;overflow-wrap:anywhere;
+}
+body.app-active .apartment-card-main .meta-row{gap:7px}
+body.app-active .apartment-card-main .meta-row .tag{
+ display:inline-flex;align-items:center;min-height:31px;
+ background:#f3f3f3;border-radius:999px;font-size:.75rem;padding:5px 12px;
+}
+body.app-active .apartment-switcher{display:block;flex:0 1 300px;min-width:200px}
+body.app-active .apartment-switcher .control{
+ width:100%;min-width:0;max-width:none;border-radius:12px;
+ min-height:46px;background:#fff;white-space:nowrap;text-overflow:ellipsis;
+}
+.apartment-card-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+body.app-active .apartment-card-actions .mini{
+ min-height:40px;border-radius:11px;padding:9px 15px;
+ font-size:.78rem;background:#fff;border:1px solid #d9d9d9;
+}
+body.app-active .apartment-card-actions .mini:hover{background:#f6f6f6}
+body.app-active #owner-panel,
+body.app-active #fee-workspace,
+body.app-active #billing-history-panel{border-radius:20px;box-shadow:0 5px 22px rgba(0,0,0,.035)}
+/* Uniform, restrained input vocabulary matching the simple UI examples. */
+body.app-active #fee-editor .control,
+body.app-active #fee-editor .button,
+body.app-active #fee-editor .mini,
+body.app-active #fee-editor .ub-bill-row{
+ transition:border-color .17s ease,background-color .17s ease,box-shadow .17s ease,transform .17s ease
+}
+body.app-active #fee-editor .control{
+ border:1px solid #d8d8d8;border-radius:12px;
+ min-height:46px;background:#fff;color:#171717;font-size:.9rem;
+}
+body.app-active #fee-editor .control:focus{
+ border-color:#505050;outline:none;box-shadow:0 0 0 3px rgba(0,0,0,.095);
+}
+body.app-active #fee-editor .button{border-radius:12px;min-height:46px}
+body.app-active #fee-editor .mini{border-radius:10px;padding:10px 14px}
+body.app-active #fee-editor>.ub-intro{
+ background:#f7f7f7;border:1px solid #eee;border-radius:16px;
+ display:flex;gap:20px;align-items:center;padding:18px;
+}
+body.app-active #fee-editor>.ub-intro>div:first-child{flex:1;min-width:0}
+body.app-active .ub-period-tools{
+ display:grid;grid-template-columns:minmax(0,1fr);gap:10px;
+ width:min(100%,300px);flex:0 0 300px;
+}
+body.app-active .ub-period-tools .ub-month-label{max-width:none!important;min-width:0!important;flex:none}
+body.app-active .ub-copy-previous{
+ width:100%;min-width:0;white-space:normal;
+ justify-content:center;font-size:.79rem;padding:10px 13px;border:1px solid #d9d9d9;
+ background:#fff;color:#111;
+}
+body.app-active .ub-copy-previous svg,
+body.app-active .ub-actions svg{width:17px;height:17px;flex:none}
+body.app-active #fee-editor .ub-form{
+ border:1px solid #dedede;border-radius:18px;padding:clamp(15px,2.4vw,23px);
+ background:#fff;box-shadow:0 9px 25px rgba(0,0,0,.035);
+}
+body.app-active .ub-form-head{align-items:center;margin-bottom:17px}
+body.app-active .ub-form-head h4{font-size:1.17rem;font-weight:800}
+body.app-active #ub-form-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+body.app-active #ub-form-items .ub-fee-field{
+ padding:14px;margin:0;background:#fafafa;
+ border:1px solid #ececec;border-radius:13px;min-width:0;
+}
+body.app-active .ub-fee-field .field{display:grid;gap:8px}
+body.app-active .ub-fee-field .field>span{
+ font-size:.8rem;font-weight:680;line-height:1.5;min-height:2.4em;
+}
+body.app-active .ub-group-rule{
+ grid-column:1/-1;display:grid;gap:11px;
+ margin-top:3px;padding-top:17px;border-top:1px solid #ebebeb;
+}
+body.app-active .ub-group-method{display:grid;gap:8px}
+body.app-active .ub-group-method>span{font-size:.82rem;font-weight:740}
+body.app-active .ub-default-note{
+ display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
+ border:1px solid #e8e8e8;border-radius:13px;background:#f7f7f7;
+}
+body.app-active .ub-note-check{
+ flex:0 0 22px;width:22px;height:22px;display:grid;place-items:center;
+ border-radius:50%;background:#181818;color:#fff;font-size:.75rem;font-weight:850;
+}
+body.app-active .ub-note-content{display:grid;gap:4px;min-width:0}
+body.app-active .ub-note-content strong{font-size:.84rem;font-weight:760}
+body.app-active .ub-note-content small{font-size:.78rem;color:#646464;line-height:1.55}
+body.app-active .ub-legacy-note{border:1px solid #dedede;border-radius:12px;background:#fafafa;padding:13px;font-size:.82rem;line-height:1.55}
+body.app-active .ub-resident-details{
+ border:1px solid #e2e2e2;border-radius:13px;background:#fff;
+ padding:12px 14px;margin:0;
+}
+body.app-active .ub-resident-details>summary{font-size:.82rem}
+body.app-active .ub-group-people{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;
+}
+body.app-active .ub-group-people .ub-person-row{
+ border:1px solid #ececec;border-radius:11px;background:#fafafa;
+ padding:10px 12px;margin:0;min-width:0;
+}
+body.app-active .ub-person-row>span{min-width:0;overflow-wrap:anywhere;font-size:.8rem}
+body.app-active .ub-group-people input[type=number]{max-width:110px;min-width:70px}
+body.app-active .ub-form-total{padding:17px 0;align-items:center;margin-top:5px}
+body.app-active #fee-editor .ub-bill-row:hover{border-color:#bfbfbf;background:#fafafa}
+body.app-active #fee-editor .ub-summary-total{
+ background:#f7f7f7;border:1px solid #ececec;border-radius:15px;
+}
+body.app-active .ub-actions{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;
+ border-top:1px solid #ededed;padding-top:18px;
+}
+body.app-active .ub-actions #ub-save{
+ grid-column:1/-1;grid-row:1;min-height:50px;width:100%;
+}
+body.app-active .ub-actions #ub-copy-result,
+body.app-active .ub-actions #ub-share{
+ display:flex;justify-content:center;align-items:center;gap:9px;
+ width:100%;min-width:0;padding:11px 12px;line-height:1.35;white-space:normal;
+}
+body.app-active .ub-actions .button:disabled{opacity:.5;box-shadow:none;transform:none}
+body.app-active #ub-info{text-align:center;font-size:.71rem;line-height:1.7;color:#777}
+body.app-active #ub-type-dialog .control{border-radius:12px}
+@media(max-width:900px){
+ body.app-active .apartment-card-main{align-items:flex-start}
+}
+@media(max-width:680px){
+ body.app-active .apartment-toolbar{padding:17px;gap:16px}
+ .apartment-card-head{padding-bottom:13px}
+ .apartment-card-main{display:grid;gap:14px}
+ body.app-active .apartment-switcher{width:100%;min-width:0}
+ .apartment-card-actions .mini{flex:1;justify-content:center}
+ body.app-active #fee-editor>.ub-intro{display:grid;gap:13px}
+ body.app-active #fee-editor>.ub-intro>div:first-child{width:100%}
+ body.app-active .ub-period-tools{width:100%;grid-template-columns:1fr;flex:auto}
+ body.app-active #ub-form-items{grid-template-columns:1fr}
+ body.app-active .ub-fee-field .field>span{min-height:0}
+ body.app-active .ub-group-people{grid-template-columns:1fr}
+ body.app-active .ub-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body.app-active .ub-actions #ub-save{grid-column:1/-1!important}
+ body.app-active .ub-actions #ub-copy-result,
+ body.app-active .ub-actions #ub-share{grid-column:auto!important}
+}
+@media(max-width:390px){
+ body.app-active .ub-actions{grid-template-columns:1fr}
+ body.app-active .ub-actions #ub-save,
+ body.app-active .ub-actions #ub-copy-result,
+ body.app-active .ub-actions #ub-share{grid-column:1/-1!important}
+}
+@media(prefers-reduced-motion:reduce){
+ body.app-active #fee-editor .control,
+ body.app-active #fee-editor .button,
+ body.app-active #fee-editor .mini{transition:none}
+}
