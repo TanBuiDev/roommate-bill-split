@@ -83,6 +83,50 @@ The application uses `confirmAction({title, message, confirmText, cancelText, to
 - Branded confirmation modals translate buttons, titles, messages and accessibility labels; labels and notices in the app also use the same dictionary.
 - **Authentication email templates are configured separately in the server's email settings.** This switch does not automatically translate emails sent by that service.
 
+## Reusable multi-fee templates and billing periods
+
+The existing **simple bill** workflow remains unchanged. Apartment owners can switch the billing editor to **Multi-fee period**. Members may view saved multi-fee periods and payment status, but only an owner can create, edit or delete fee periods and personal templates.
+
+### Starting a period
+
+- **System template** (static JS, zero database lookups): Apartment fees (seven charges, including parking), Rental house, Shared living costs. Suggestions are editable, not contractual fee rules.
+- **Own apartment template**: Name your customized fee list and save it in \`apartment_fee_templates\`. Definition stores fee names, rules, participant selections and quantities, **not prior money amounts**. Templates belong only to the active apartment.
+- **Copy previous period**: Copy the preceding period's charge structure and values into a *new* editor; explicitly review amounts and participants. The original remains unchanged.
+- **Start blank**: Add individual fee lines, optionally delete or edit them. Maximum 30 fee lines.
+
+### Allocation rules
+
+Every charge line has a separate name, amount, eligible residents and sharing method:
+
+- \`days\`: split proportionally to the resident's stored days (up to the calendar month length).
+- \`equal\`: split evenly among selected residents.
+- \`quantity\`: split by entered number of vehicles / units; a resident with zero units pays nothing.
+- \`manual\`: enter exact individual shares; the total must match the charge.
+
+The pure \`fee-engine.mjs\` module uses BigInt for largest-remainder rounding. A multi-fee bill is valid only if every line is allocated exactly and the overall sum of per-person shares equals the sum of charges.
+
+### Storage and safety
+
+- \`apartment_fee_periods\` stores immutable-at-read fee-line snapshots per saved period.
+- \`apartment_fee_payments\` stores each person's aggregate share and payment state. Members can report only their own payment, and owners can confirm receipt. An overwritten period resets previous payment confirmations and requires an explicit warning.
+- \`save_apartment_fee_period\` validates resident/apartment ownership, amounts and per-line sums on the server before atomically saving a period and its payment rows.
+- \`apartment_fee_templates\` uses RLS owner-only CRUD. The new period and payment tables are readable only by apartment members and writable only through permission-checked RPCs.
+- No image parsing, external billing-provider integrations, money collection, scheduled tasks, realtime subscriptions or background polling.
+- Period list and saved payment states refresh when the user clicks Refresh or reloads the website. Existing simple bills, their allocation records and resident names are left intact.
+
+### Testing checklist
+
+- Open new apartment with no residents; the multi-fee editor must block saving until residents are added.
+- Choose Apartment fees; confirm seven editable charge lines, all zero by default; the parking charge allocates only to residents with a positive vehicle count.
+- For 2 vehicles versus 1, test odd amounts and exact sum.
+- Try manually allocated amounts below/above the actual charge; save must be blocked.
+- Save custom template, switch apartments and confirm isolation; reopen template without old currency amounts.
+- Copy a previous period and change the month; the old period must remain unchanged.
+- Confirm member read-only access; member reports own payment, owner confirms it. Changes on other devices appear on explicit refresh.
+- Check mobile narrow screens and VI/EN translation; ensure no native browser confirm/alert and no public source-code links.
+- Test authenticated flows in a browser with two distinct accounts before declaring full E2E acceptance.
+
+
 ## New database
 
 New tables (all RLS enabled): apartments, apartment_members, apartment_residents, apartment_invitations, apartment_bills, apartment_allocations.
