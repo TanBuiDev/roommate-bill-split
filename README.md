@@ -46,6 +46,15 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 
 The application uses `confirmAction({title, message, confirmText, cancelText, tone})` from `ui-modal.mjs` for destructive actions and bill confirmation. It returns a `Promise<boolean>`; **only** pressing the explicit confirmation button returns `true`. Escape, backdrop click, close and Cancel return `false`. `showNotice({title, message})` is available for one-button messages. Style lives in `styles.css`, and the native `<dialog>` provides modal semantics and focus trapping (no default browser confirmation popup). No emoji icons or injected dynamic HTML are used.
 
+
+## Interface languages
+
+- The header exposes **VI / EN** on desktop and mobile. Vietnamese is the default for first-time visitors; the chosen language is remembered in `localStorage` under `oghep-language`.
+- `i18n/dictionary.mjs` contains Vietnamese translations, `i18n/index.mjs` handles switching static page text and public metadata while `app.mjs` renders dynamic translations.
+- The language switch does **not** reload the page, re-fetch a user's bills, reset an apartment or change stored data. Names and apartment codes are never translated.
+- Branded confirmation modals translate buttons, titles, messages and accessibility labels; labels and notices in the app also use the same dictionary.
+- **Authentication email templates are configured separately in the server's email settings.** This switch does not automatically translate emails sent by that service.
+
 ## New database
 
 New tables (all RLS enabled): apartments, apartment_members, apartment_residents, apartment_invitations, apartment_bills, apartment_allocations.
