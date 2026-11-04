@@ -1,97 +1,548 @@
-import {createClient} from "https://esm.sh/@supabase/supabase-js@2.118.0";
-const SUPABASE_URL = "https://loovjgylbookhouxjkaf.supabase.co";
-const SUPABASE_KEY = "sb_publishable_i-HRVZm2rY7SUl1w-iJAdA_KAPi2H8h";
-const db = createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-const $ = s => document.querySelector(s);
-const show = (id,on) => $(id).classList.toggle("hidden",!on);
-const money = n => Math.round(n).toLocaleString("vi-VN")+" ₫";
-const types = {electric:"Electricity",water:"Water",internet:"Internet",other:"Other"};
-const id = () => crypto.randomUUID();
-const defaultMemberNames = ["Tấn","Tiến","Thành","Huy","Nhựt","Kiệt","Hậu"];
-const now = new Date();
-const ym = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-let user = null, people = [], history = [], shown = new Set(), saveTimer, writeQueue=Promise.resolve(), savedIds=new Set(), noticeTimer, authBusy=false;
-let draft={type:"electric",month:ym,amount:"",days:30};
-function toast(message){const e=$("#toast");e.textContent=message;e.classList.add("show");clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>e.classList.remove("show"),3500)}
-function el(tag,cls,value){const x=document.createElement(tag);if(cls)x.className=cls;if(value!==undefined)x.textContent=value;return x}
-function readDraft(){try{const v=JSON.parse(localStorage.getItem("oghep-draft:"+user.id));if(v&&types[v.type]&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v.month)){draft.type=v.type;draft.month=v.month;draft.amount="";draft.days=Number.isInteger(v.days)&&v.days>=1&&v.days<=366?v.days:30}}catch{}}
-function writeDraft(){if(user)localStorage.setItem("oghep-draft:"+user.id,JSON.stringify({...draft,amount:""}))}
-function days(p){if(p.mode==="full")return draft.days;if(p.mode==="custom")return Math.min(draft.days,Math.max(0,Math.trunc(Number(p.customDays))||0));const w=Number(String(p.mode).slice(1));return Math.min(draft.days,[1,2,3,4].includes(w)?w*7:28)}
-function split(){const amount=Number(draft.amount);if(!Number.isSafeInteger(amount)||amount<=0||!people.length)return null;const entries=people.map((p,i)=>({id:p.id,name:p.name.trim()||"Unnamed",days:days(p),mode:p.mode,customDays:p.customDays,index:i}));const totalDays=entries.reduce((s,p)=>s+p.days,0);if(!totalDays)return null;let given=0;const x=entries.map(p=>{const raw=amount*p.days/totalDays;const floor=Math.floor(raw);given+=floor;return {...p,share:floor,remain:raw-floor}});x.sort((a,b)=>b.remain-a.remain||a.index-b.index);for(let i=0;i<amount-given;i++)x[i].share++;return x.sort((a,b)=>a.index-b.index)}
-function renderMembers(){const root=$("#members");root.replaceChildren();$("#member-count").textContent=people.length+" residents";
-if(!people.length){const tr=el("tr"),td=el("td","muted","No residents yet. Add someone to get started.");td.colSpan=8;tr.append(td);root.append(tr);return}
-people.forEach((p,i)=>{const tr=el("tr"),nameTD=el("td"),name=el("input","member-name");name.value=p.name;name.placeholder="Resident name";name.maxLength=70;name.setAttribute("aria-label","Resident name "+(i+1));name.addEventListener("input",e=>{p.name=e.target.value;renderResults();scheduleMembers()});name.addEventListener("blur",()=>{if(!p.name.trim()){p.name="Person "+(i+1);name.value=p.name;renderResults();scheduleMembers()}});nameTD.append(name);tr.append(nameTD);
-for(let week=1;week<=4;week++){const td=el("td"),mode="w"+week,btn=el("button","week-choice"+(p.mode===mode?" active":""),week+" wk");btn.type="button";btn.setAttribute("aria-pressed",p.mode===mode?"true":"false");btn.setAttribute("aria-label",p.name+" "+week+" wk");btn.addEventListener("click",()=>{p.mode=mode;renderMembers();renderResults();scheduleMembers()});td.append(btn);tr.append(td)}
-const td=el("td"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));input.type="number";input.min="0";input.max=String(draft.days);input.inputMode="numeric";input.placeholder="Days";input.value=p.mode==="custom"?String(p.customDays):"";input.setAttribute("aria-label",p.name+" custom days");
-input.addEventListener("focus",()=>{if(p.mode!=="custom"){p.customDays=days(p);p.mode="custom";input.value=String(p.customDays);input.classList.add("active");tr.querySelectorAll(".week-choice").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-pressed","false")});renderResults();scheduleMembers()}});
-input.addEventListener("input",e=>{p.mode="custom";const n=Number(e.target.value);p.customDays=Math.max(0,Math.min(draft.days,Number.isFinite(n)?Math.trunc(n):0));renderResults();scheduleMembers()});
-input.addEventListener("change",()=>{input.value=String(p.customDays)});
-td.append(input);tr.append(td);
-const shareTD=el("td"),share=el("strong","person-share","0 ₫"),duration=el("small","person-days","0 days");share.setAttribute("data-share-id",p.id);duration.setAttribute("data-days-id",p.id);shareTD.append(share,duration);tr.append(shareTD);
-const deleteTD=el("td"),del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label","Remove "+p.name);del.addEventListener("click",()=>{if(!confirm("Remove "+p.name+" from the household?"))return;people=people.filter(x=>x.id!==p.id);renderMembers();renderResults();scheduleMembers()});deleteTD.append(del);tr.append(deleteTD);root.append(tr)})}
-function renderResults(){const amount=Number(draft.amount)||0;$("#total").textContent=money(amount);$("#period-label").textContent="Period "+draft.month.slice(5)+"/"+draft.month.slice(0,4);$("#people-label").textContent=people.length+" residents";const parts=split(),map=new Map((parts||[]).map(x=>[x.id,x]));
-people.forEach(p=>{const e=document.querySelector('[data-share-id="'+p.id+'"]'),f=document.querySelector('[data-days-id="'+p.id+'"]');if(e)e.textContent=money(map.get(p.id)?.share||0);if(f)f.textContent=days(p)+" days"});
-$("#allocated").textContent=money(parts?parts.reduce((a,p)=>a+p.share,0):0);
-let error="";if(!(Number.isSafeInteger(amount)&&amount>0))error="Enter a valid bill amount.";else if(!people.length)error="Add at least one resident.";else if(!parts)error="At least one resident must have more than 0 days.";else if(people.some(p=>!p.name.trim()))error="Give every resident a name.";$("#validation").textContent=error;$("#save").disabled=!!error;$("#copy").disabled=!!error}
-function renderHistory(){const root=$("#history");root.replaceChildren();$("#history-count").textContent=history.length+" periods";if(!history.length){root.append(el("p","muted","No saved bills yet."));return}history.forEach(h=>{const box=el("div","bill"),line=el("div","bill-line"),text=el("div","bill-desc");text.append(el("strong","",(types[h.bill_type]||"Bill")+" · "+h.bill_month.slice(5)+"/"+h.bill_month.slice(0,4)),el("small","",h.people.length+" residents · "+h.billing_days+" days"));line.append(text,el("span","bill-money",money(h.amount)));box.append(line);const actions=el("div","bill-actions"),view=el("button","mini",shown.has(h.id)?"Hide details":"Details");view.addEventListener("click",()=>{shown.has(h.id)?shown.delete(h.id):shown.add(h.id);renderHistory()});const load=el("button","mini","Load");load.addEventListener("click",()=>{if(!confirm("Load this bill into the form? Your current resident list will be kept."))return;draft={type:h.bill_type,month:h.bill_month,amount:String(h.amount),days:h.billing_days};$("#bill-type").value=draft.type;$("#bill-month").value=draft.month;$("#bill-amount").value=draft.amount;$("#billing-days").value=draft.days;h.people.forEach(saved=>{const p=people.find(x=>x.name===saved.name);if(p){p.mode=saved.mode==="full"?"custom":saved.mode;p.customDays=saved.mode==="full"?h.billing_days:saved.customDays}});writeDraft();renderMembers();renderResults();scheduleMembers();document.querySelector("#dashboard")?.scrollIntoView({behavior:"smooth",block:"start"})});const del=el("button","mini red","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this saved bill?"))return;const {error}=await db.from("bill_history").delete().eq("id",h.id);if(error){toast("Could not delete this bill. Please try again.");return}history=history.filter(x=>x.id!==h.id);renderHistory();toast("Bill deleted.")});actions.append(view,load,del);box.append(actions);if(shown.has(h.id)){const detail=el("div","bill-detail");h.people.forEach((p,i)=>{const row=el("div","paid-row");row.append(el("span","",p.name+" · "+p.days+" days · "+money(p.share)));const label=el("label");const check=el("input");check.type="checkbox";check.checked=!!p.paid;check.addEventListener("change",async()=>{const next=h.people.map((x,j)=>j===i?{...x,paid:check.checked}:x);check.disabled=true;const {error}=await db.from("bill_history").update({people:next,updated_at:new Date().toISOString()}).eq("id",h.id);if(error){toast("Could not update payment status. Try again.");check.checked=!check.checked}else{h.people=next;toast("Payment status saved.");renderHistory()}check.disabled=false});label.append(check,el("span","",p.paid?"Paid":"Mark paid"));row.append(label);detail.append(row)});box.append(detail)}root.append(box)})}
-function scheduleMembers(){if(!user)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>{writeQueue=writeQueue.then(saveMembers).catch(err=>toast("Your resident list could not sync. Please try again."))},650)}
-async function saveMembers(){if(!user)return;const uid=user.id;const data=people.map((p,i)=>({id:p.id,user_id:uid,name:p.name.trim()||"Person "+(i+1),sort_order:i,mode:p.mode==="full"?"custom":p.mode,custom_days:p.mode==="full"?draft.days:Math.max(0,Math.min(366,Number(p.customDays)||0))}));const current=new Set(data.map(x=>x.id));const old=[...savedIds].filter(x=>!current.has(x));if(data.length){const {error}=await db.from("room_members").upsert(data,{onConflict:"id"});if(error)throw error}if(old.length){const {error}=await db.from("room_members").delete().in("id",old);if(error)throw error}savedIds=new Set(current)}
-async function loadAccount(u){user=u;draft={type:"electric",month:ym,amount:"",days:30};$("#loading").classList.add("hidden");show("#auth",false);show("#workspace",true);show("#signout",true);$("#sync-chip").textContent="Connected";$("#sync-chip").classList.add("connected");readDraft();$("#bill-type").value=draft.type;$("#bill-month").value=draft.month;$("#bill-amount").value=draft.amount;$("#billing-days").value=draft.days;const [m,h]=await Promise.all([db.from("room_members").select("id,name,sort_order,mode,custom_days").order("sort_order"),db.from("bill_history").select("id,bill_type,bill_month,amount,billing_days,people,created_at").order("bill_month",{ascending:false}).limit(100)]);if(m.error||h.error){toast("Could not load your account data. Please try again.");return}if(user?.id!==u.id)return;people=m.data.map(p=>({id:p.id,name:p.name,mode:p.mode||"w4",customDays:p.custom_days??0}));savedIds=new Set(people.map(p=>p.id));history=h.data;
-const prefs=await db.from("room_preferences").select("members_initialized").eq("user_id",u.id).maybeSingle();
-if(prefs.error){toast("Could not load your preferences.");return}
-if(!prefs.data){const existing=new Set(people.map(p=>p.name.trim().toLocaleLowerCase("vi")));
-const missing=defaultMemberNames.filter(name=>!existing.has(name.toLocaleLowerCase("vi"))).slice(0,Math.max(0,70-people.length));
-if(missing.length){const defaults=missing.map((name,i)=>({id:id(),user_id:u.id,name,sort_order:people.length+i,mode:"w4",custom_days:0}));const seeded=await db.from("room_members").upsert(defaults,{onConflict:"id"});if(seeded.error){toast("Could not initialize residents.");return}people.push(...defaults.map(p=>({id:p.id,name:p.name,mode:p.mode,customDays:p.custom_days})));savedIds=new Set(people.map(p=>p.id))}
-const mark=await db.from("room_preferences").upsert({user_id:u.id,members_initialized:true},{onConflict:"user_id"});if(mark.error)toast("Could not save initialization preferences.")}
-renderMembers();renderResults();renderHistory()}
-function showAuth(){user=null;people=[];history=[];draft={type:"electric",month:ym,amount:"",days:30};savedIds.clear();clearTimeout(saveTimer);$("#loading").classList.add("hidden");show("#auth",true);show("#workspace",false);show("#signout",false);$("#sync-chip").textContent="Signed out";$("#sync-chip").classList.remove("connected")}
-const loginCooldownKey="oghep-login-backoff-v1";
-let loginCooldownUntil=Number(localStorage.getItem(loginCooldownKey))||0;
-let loginCooldownTick=null;
-function refreshLoginButton(){
- const remaining=Math.max(0,Math.ceil((loginCooldownUntil-Date.now())/1000));
- const button=$("#login-button");
- button.disabled=authBusy||remaining>0;
- button.textContent=authBusy?"Sending...":remaining>0?"Try again in "+Math.ceil(remaining/60)+" min":"Email me a sign-in link";
- if(remaining<=0&&loginCooldownTick){clearInterval(loginCooldownTick);loginCooldownTick=null;localStorage.removeItem(loginCooldownKey)}
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
+const SITE="https://oghep.pages.dev";
+const SUPA_URL="https://loovjgylbookhouxjkaf.supabase.co";
+const SUPA_KEY="sb_publishable_i-HRVZm2rY7SUl1w-iJAdA_KAPi2H8h";
+const fromLink=new URL(location.href).searchParams.get("invite");
+if(fromLink&&/^[a-f0-9]{64}$/.test(fromLink)){
+ sessionStorage.setItem("oghep-invite",fromLink);
+ history.replaceState(null,"",location.pathname+location.hash);
 }
-function cooldownLogin(seconds){
- loginCooldownUntil=Date.now()+seconds*1000;
- localStorage.setItem(loginCooldownKey,String(loginCooldownUntil));
- if(loginCooldownTick)clearInterval(loginCooldownTick);
- loginCooldownTick=setInterval(refreshLoginButton,1000);
- refreshLoginButton()
+const db=createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=s=>document.querySelector(s);
+const show=(id,on)=>{const x=$(id);if(x)x.classList.toggle("hidden",!on)};
+const label=(id,value)=>{const x=$(id);if(x)x.textContent=value};
+const el=(tag,cls,value)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(value!==undefined)x.textContent=value;return x};
+const fmt=x=>Number(x||0).toLocaleString("vi-VN");
+const money=x=>fmt(x)+" ₫";
+const types={electric:"Electricity",water:"Water",internet:"Internet",other:"Other"};
+const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")};
+const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
+ shown:new Set(),legacy:false,loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
+ draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
+ loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0)};
+let toastTimer=0;
+function toast(message){
+ const t=$("#toast");t.textContent=message;t.classList.add("show");
+ clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),3800);
 }
-refreshLoginButton();
-if(loginCooldownUntil>Date.now())loginCooldownTick=setInterval(refreshLoginButton,1000);
-$("#login-form").addEventListener("submit",async e=>{
- e.preventDefault();
- if(authBusy||Date.now()<loginCooldownUntil)return;
- const email=$("#email").value.trim();if(!email)return;
- authBusy=true;refreshLoginButton();$("#authmsg").textContent="Sending your sign-in link...";
- try{
-  const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
-  if(error)throw error;
-  $("#authmsg").textContent="Check your inbox and spam folder for your sign-in link.";
-  cooldownLogin(60);
- }catch(err){
-  if(err?.status===429||err?.code==="over_email_send_rate_limit"||err?.code==="over_request_rate_limit"){
-   $("#authmsg").textContent="Email sending is temporarily limited. Please wait 30–60 minutes before trying again.";
-   cooldownLogin(30*60);
-  }else if(err?.code==="email_address_not_authorized"||String(err?.message||"").toLowerCase().includes("email address not authorized")){
-   $("#authmsg").textContent="This email is not authorized to receive a sign-in link. Contact the site owner.";
-  }else{
-   $("#authmsg").textContent="Could not send your sign-in link. Please try again or contact the site owner.";
+function errorNotice(message,error){if(error)console.error(message,error);toast(message)}
+const isOwner=()=>state.owner;
+const currentAptKey=()=>("oghep-active:"+state.user.id);
+function billingPeriod(){
+ const [year,month]=state.draft.month.split("-").map(Number);
+ const defaultDays=year>=1900&&year<=2100&&month>=1&&month<=12?new Date(year,month,0).getDate():30;
+ const start=state.draft.start,end=state.draft.end;
+ if(!start&&!end)return {valid:true,days:defaultDays,start:null,end:null};
+ if(!start||!end)return {valid:false,days:defaultDays,error:"Provide both start and end dates."};
+ const a=Date.parse(start+"T00:00:00Z"),b=Date.parse(end+"T00:00:00Z");
+ const days=Math.round((b-a)/86400000)+1;
+ if(!Number.isFinite(days)||days<1||days>366)return {valid:false,days:defaultDays,error:"Choose a date range of 1–366 days."};
+ return {valid:true,days,start,end};
+}
+function occupiedDays(p){
+ const cap=billingPeriod().days;
+ if(p.mode==="custom")return Math.min(cap,Math.max(0,Math.trunc(Number(p.custom_days)||0)));
+ const w=Number((p.mode||"w4").slice(1));
+ return Math.min(cap,[1,2,3,4].includes(w)?w*7:28);
+}
+function split(){
+ const amount=Number(state.draft.amount);
+ if(!Number.isSafeInteger(amount)||amount<=0||!state.residents.length)return null;
+ const arr=state.residents.map((p,i)=>({id:p.id,name:p.name,mode:p.mode,custom_days:p.custom_days,days:occupiedDays(p),index:i}));
+ const sum=arr.reduce((v,p)=>v+p.days,0);
+ if(!sum)return null;
+ let allocated=0n;
+ const out=arr.map(p=>{
+  const n=BigInt(amount)*BigInt(p.days);
+  const quotient=n/BigInt(sum);
+  allocated+=quotient;
+  return {...p,share:Number(quotient),rem:n%BigInt(sum)};
+ });
+ const remain=Number(BigInt(amount)-allocated);
+ const ranking=[...out].sort((a,b)=>a.rem===b.rem?a.index-b.index:a.rem>b.rem?-1:1);
+ for(let i=0;i<remain;i++)ranking[i].share++;
+ return out;
+}
+function validateBill(){
+ if(!state.owner)return "Only apartment owners can save bills.";
+ if(!Number.isSafeInteger(Number(state.draft.amount))||Number(state.draft.amount)<=0)return "Enter a valid bill amount.";
+ const period=billingPeriod();if(!period.valid)return period.error;
+ if(!state.residents.length)return "Add at least one resident.";
+ if(!split())return "At least one resident must have more than zero days.";
+ return "";
+}
+function renderMoney(){
+ const n=$("#bill-amount"),at=n.selectionStart||0;
+ const before=n.value.slice(0,at).replace(/\D/g,"").length;
+ let raw=n.value.replace(/\D/g,"").replace(/^0+(?=\d)/,"");
+ if(raw && BigInt(raw)>BigInt(Number.MAX_SAFE_INTEGER))raw=String(Number.MAX_SAFE_INTEGER);
+ state.draft.amount=raw;n.value=raw?fmt(raw):"";
+ let pos=0,count=0;
+ while(pos<n.value.length&&count<before){if(/\d/.test(n.value[pos]))count++;pos++}
+ n.setSelectionRange(pos,pos);
+ renderResult();
+}
+function renderResult(){
+ const p=billingPeriod();
+ label("#period-days-note",p.valid?p.days+" calendar/billing days":"Check the date range");
+ label("#period-label",state.draft.month.slice(5)+"/"+state.draft.month.slice(0,4)+" · "+p.days+" days");
+ label("#total",money(state.draft.amount));
+ label("#people-label",state.residents.length+" residents");
+ const r=split()||[], map=new Map(r.map(x=>[x.id,x]));
+ label("#allocated",money(r.reduce((a,b)=>a+b.share,0)));
+ for(const resident of state.residents){
+  const share=$("#members").querySelector('[data-share-id="'+resident.id+'"]');
+  const days=$("#members").querySelector('[data-days-id="'+resident.id+'"]');
+  if(share)share.textContent=money(map.get(resident.id)?.share||0);
+  if(days)days.textContent=occupiedDays(resident)+" days";
+ }
+ label("#validation",validateBill());
+ $("#save").disabled=!!validateBill();
+ $("#copy").disabled=!r.length||!!validateBill();
+}
+function setDraft(){
+ $("#bill-type").value=state.draft.type;
+ $("#bill-month").value=state.draft.month;
+ $("#bill-amount").value=state.draft.amount?fmt(state.draft.amount):"";
+ $("#period-start").value=state.draft.start||"";
+ $("#period-end").value=state.draft.end||"";
+ $("#advanced-period").open=!!(state.draft.start||state.draft.end);
+ renderResult();
+}
+function blankDraft(){state.draft={type:"electric",month:nowMonth(),amount:"",start:"",end:""};setDraft()}
+function savePendingResidents(){
+ if(!state.owner||!state.apt||!state.dirty.size)return;
+ const items=[...state.dirty.values()];state.dirty.clear();
+ state.writeChain=state.writeChain.then(async()=>{
+  for(const p of items){
+   const {error}=await db.from("apartment_residents").update({
+    name:p.name.trim()||"Resident",mode:p.mode,custom_days:p.custom_days,sort_order:p.sort_order
+   }).eq("id",p.id).eq("apartment_id",state.apt.id);
+   if(error)throw error;
   }
- }finally{authBusy=false;refreshLoginButton()}
+ }).catch(err=>errorNotice("Resident changes were not saved. Please reload.",err));
+}
+function changedResident(p){
+ if(!state.owner)return;
+ state.dirty.set(p.id,{...p});
+ clearTimeout(state.writeTimer);state.writeTimer=setTimeout(savePendingResidents,650);
+}
+function renderResidentTable(){
+ const body=$("#members");body.replaceChildren();
+ label("#member-count",state.residents.length+" residents");
+ for(const [index,p] of state.residents.entries()){
+  const row=el("tr"),cell=el("td");
+  const name=el("input","member-name");name.value=p.name;name.maxLength=70;name.disabled=!state.owner;
+  name.setAttribute("aria-label","Resident "+(index+1));
+  name.addEventListener("input",()=>{p.name=name.value;changedResident(p)});
+  name.addEventListener("blur",()=>{if(!p.name.trim()){p.name="Resident "+(index+1);name.value=p.name;changedResident(p)}});
+  cell.append(name);row.append(cell);
+  for(let week=1;week<=4;week++){
+   const td=el("td"),code="w"+week,btn=el("button","week-choice"+(p.mode===code?" active":""),week+" wk");
+   btn.type="button";btn.disabled=!state.owner;btn.setAttribute("aria-pressed",String(p.mode===code));
+   btn.setAttribute("aria-label",p.name+": "+week+" weeks");
+   btn.addEventListener("click",()=>{p.mode=code;changedResident(p);renderResidentTable()});
+   td.append(btn);row.append(td);
+  }
+  const td=el("td"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));
+  input.type="number";input.min="0";input.max=String(billingPeriod().days);input.inputMode="numeric";
+  input.placeholder="Days";input.disabled=!state.owner;
+  input.value=p.mode==="custom"?String(p.custom_days):"";
+  input.setAttribute("aria-label",p.name+": custom days");
+  input.addEventListener("focus",()=>{
+   if(p.mode!=="custom"){
+    p.custom_days=occupiedDays(p);p.mode="custom";input.value=String(p.custom_days);
+    input.classList.add("active");
+    row.querySelectorAll(".week-choice").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-pressed","false")});
+    changedResident(p);renderResult();
+   }
+  });
+  input.addEventListener("input",()=>{p.mode="custom";p.custom_days=Math.max(0,Math.min(billingPeriod().days,Math.trunc(Number(input.value))||0));changedResident(p);renderResult()});
+  input.addEventListener("change",()=>{input.value=String(p.custom_days)});
+  td.append(input);row.append(td);
+  const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days","0 days");
+  val.dataset.shareId=p.id;hint.dataset.daysId=p.id;shareTd.append(val,hint);row.append(shareTd);
+  const delTd=el("td");
+  if(state.owner){
+   const del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label","Remove "+p.name);
+   del.addEventListener("click",()=>removeResident(p));delTd.append(del);
+  }
+  row.append(delTd);body.append(row);
+ }
+ if(!state.residents.length){
+  const row=el("tr"),td=el("td","muted","No residents yet. Add one above.");td.colSpan=8;row.append(td);body.append(row);
+ }
+ renderInviteOptions();renderResult();
+}
+async function removeResident(p){
+ if(!state.owner||!confirm("Remove "+p.name+"? Saved bill snapshots remain intact."))return;
+ clearTimeout(state.writeTimer);state.dirty.delete(p.id);
+ const {error}=await db.from("apartment_residents").delete().eq("id",p.id).eq("apartment_id",state.apt.id);
+ if(error)return errorNotice("Could not remove resident.",error);
+ state.residents=state.residents.filter(x=>x.id!==p.id);renderResidentTable();toast("Resident removed.");
+}
+async function addResident(e){
+ e.preventDefault();if(!state.owner)return;
+ const input=$("#new-resident-name"),name=input.value.trim();
+ if(!name||state.residents.length>=70)return toast("Please enter a name. Maximum 70 residents.");
+ if(state.residents.some(x=>x.name.trim().toLocaleLowerCase("vi")===name.toLocaleLowerCase("vi")))return toast("This resident name already exists.");
+ const {data,error}=await db.from("apartment_residents").insert({
+  apartment_id:state.apt.id,name,mode:"w4",custom_days:0,sort_order:state.residents.length
+ }).select("id,apartment_id,user_id,name,mode,custom_days,sort_order").single();
+ if(error)return errorNotice("Could not add resident.",error);
+ state.residents.push(data);input.value="";renderResidentTable();toast("Resident added.");
+}
+function renderInviteOptions(){
+ const select=$("#invite-resident");select.replaceChildren();
+ const empty=el("option",null,"Choose a resident");empty.value="";select.append(empty);
+ state.residents.filter(r=>!r.user_id).forEach(r=>{const option=el("option",null,r.name);option.value=r.id;select.append(option)});
+}
+
+function renderAccess(){
+ const root=$("#member-access"),invites=$("#pending-invitations");root.replaceChildren();invites.replaceChildren();
+ if(!state.owner)return;
+ for(const m of state.members){
+  const r=state.residents.find(x=>x.user_id===m.user_id);
+  const known=state.invitations.find(x=>x.accepted_by===m.user_id);
+  const line=el("div","access-item");
+  line.append(el("span",null,(m.role==="owner"?"You (owner)":r?.name||known?.invited_email||"Linked member")+" · "+m.role));
+  if(m.role!=="owner"){
+   const remove=el("button","mini","Remove access");
+   remove.addEventListener("click",async()=>{
+    if(!confirm("Remove this member's apartment access?"))return;
+    const {error}=await db.rpc("remove_apartment_member",{p_apartment_id:state.apt.id,p_user_id:m.user_id});
+    if(error)return errorNotice("Could not remove member.",error);
+    await loadApartment(state.apt.id);
+   });
+   line.append(remove);
+  }
+  root.append(line);
+ }
+ const pending=state.invitations.filter(x=>x.status==="pending"&&new Date(x.expires_at)>new Date());
+ if(!pending.length)invites.append(el("p","muted","No pending invitations."));
+ for(const invitation of pending){
+  const line=el("div","access-item");
+  line.append(el("span",null,invitation.invited_email+" · expires "+new Date(invitation.expires_at).toLocaleDateString("en-GB")));
+  const revoke=el("button","mini","Revoke");
+  revoke.addEventListener("click",async()=>{
+   const {error}=await db.rpc("revoke_apartment_invitation",{p_invite_id:invitation.id});
+   if(error)return errorNotice("Could not revoke invitation.",error);
+   state.invitations=state.invitations.filter(x=>x.id!==invitation.id);
+   renderAccess();toast("Invitation revoked.");
+  });
+  line.append(revoke);invites.append(line);
+ }
+}
+async function refreshInvites(){
+ if(!state.owner)return;
+ const {data,error}=await db.from("apartment_invitations").select("id,invited_email,status,expires_at,accepted_by").eq("apartment_id",state.apt.id).order("created_at",{ascending:false}).limit(50);
+ if(error)return errorNotice("Could not refresh invitations.",error);
+ state.invitations=data||[];renderAccess();
+}
+async function sendInvitation(e){
+ e.preventDefault();if(!state.owner)return;
+ const email=$("#invite-email").value.trim().toLowerCase();
+ const resident=$("#invite-resident").value;
+ if(!email||!resident)return toast("Choose a member and their email.");
+ const button=$("#send-invite");button.disabled=true;
+ try{
+  const {data,error}=await db.rpc("create_apartment_invitation",{p_apartment_id:state.apt.id,p_email:email,p_resident_id:resident});
+  if(error)throw error;
+  const url=SITE+"/?invite="+data.token;
+  state.inviteLink=url;
+  const {error:mailError}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:url}});
+  await refreshInvites();
+  $("#invite-email").value="";
+  if(mailError){
+   show("#invite-fallback",true);
+   errorNotice("Invitation created, but email delivery failed. Copy the private link.",mailError);
+  }else{
+   show("#invite-fallback",false);
+   toast("Invitation sign-in email sent. The member can join after accepting.");
+  }
+ }catch(error){errorNotice("Could not create the invitation.",error)}
+ finally{button.disabled=false}
+}
+function renderAptOptions(){
+ const select=$("#apartment-select");select.replaceChildren();
+ for(const a of state.apts){const option=el("option",null,a.name+" · "+a.code);option.value=a.id;select.append(option)}
+ if(state.apt)select.value=state.apt.id;
+}
+function renderGate(){
+ const root=$("#apartment-list");root.replaceChildren();
+ if(state.apts.length)root.append(el("p","muted","Your apartments"));
+ for(const a of state.apts){
+  const btn=el("button","apartment-choice",a.name+" · "+a.code);
+  btn.type="button";btn.addEventListener("click",()=>loadApartment(a.id));
+  root.append(btn);
+ }
+ if(!state.apts.length)root.append(el("p","muted","No apartment yet. Create one to get started."));
+ show("#legacy-import-line",state.legacy);
+ const token=sessionStorage.getItem("oghep-invite");
+ show("#invitation-banner",!!token);
+ label("#invitation-message","Accept this invitation after signing in with the invited email address.");
+}
+function showGate(){
+ state.apt=null;state.owner=false;
+ show("#apartment-gate",true);show("#apartment-app",false);renderGate();
+}
+async function createApartment(e){
+ e.preventDefault();
+ const button=$("#create-apartment-button"),name=$("#new-apartment-name").value.trim();
+ if(name.length<2)return toast("Enter an apartment name.");
+ button.disabled=true;
+ try{
+  const {data,error}=await db.rpc("create_apartment",{p_name:name,p_import_legacy:state.legacy&&$("#import-legacy").checked});
+  if(error)throw error;
+  $("#new-apartment-name").value="";
+  await loadUser(state.user,true,data.id);
+  toast("Apartment created. Share the code as a reference, then invite members.");
+ }catch(err){errorNotice("Could not create apartment.",err)}
+ finally{button.disabled=false}
+}
+async function acceptInvite(){
+ const token=sessionStorage.getItem("oghep-invite");
+ if(!token)return toast("No pending invitation.");
+ const button=$("#accept-invite");button.disabled=true;
+ try{
+  const {data,error}=await db.rpc("accept_apartment_invitation",{p_token:token});
+  if(error)throw error;
+  sessionStorage.removeItem("oghep-invite");
+  await loadUser(state.user,true,data.apartment_id);
+  toast("You joined "+data.name+".");
+ }catch(err){errorNotice("Could not accept: sign in with the invited email, or ask for a fresh invitation.",err)}
+ finally{button.disabled=false}
+}
+let loadingUser=null;
+async function loadUser(user,force=false,preferred=null){
+ if(!user)return;
+ if(!force&&loadingUser)return loadingUser;
+ if(!force&&state.user?.id===user.id&&state.apt)return;
+ const seq=++state.loadSeq;
+ const work=(async()=>{
+  state.user=user;
+  show("#loading",false);show("#auth",false);show("#workspace",true);show("#signout",true);
+  label("#sync-chip","Connected");$("#sync-chip").classList.add("connected");
+  const [a,l]=await Promise.all([
+   db.from("apartments").select("id,code,name,owner_id,created_at").order("created_at",{ascending:false}),
+   db.from("room_members").select("id",{count:"exact",head:true})
+  ]);
+  if(seq!==state.loadSeq)return;
+  if(a.error)return errorNotice("Could not load apartments.",a.error);
+  state.apts=a.data||[];state.legacy=!l.error&&(l.count||0)>0;
+  renderAptOptions();
+  if(sessionStorage.getItem("oghep-invite"))return showGate();
+  const id=preferred||localStorage.getItem("oghep-active:"+user.id);
+  const apt=state.apts.find(x=>x.id===id)||state.apts[0];
+  if(apt)await loadApartment(apt.id);else showGate();
+ })();
+ loadingUser=work;
+ try{await work}finally{if(loadingUser===work)loadingUser=null}
+}
+async function loadApartment(id){
+ const a=state.apts.find(x=>x.id===id);
+ if(!a)return showGate();
+ const seq=++state.aptSeq;
+ state.apt=a;state.owner=a.owner_id===state.user?.id;
+ localStorage.setItem("oghep-active:"+state.user.id,a.id);
+ const [r,m,b,i]=await Promise.all([
+  db.from("apartment_residents").select("id,apartment_id,user_id,name,sort_order,mode,custom_days").eq("apartment_id",id).order("sort_order"),
+  db.from("apartment_members").select("user_id,role").eq("apartment_id",id),
+  db.from("apartment_bills").select("id,apartment_id,bill_type,bill_month,amount,billing_days,period_start,period_end").eq("apartment_id",id).order("bill_month",{ascending:false}).limit(100),
+  state.owner?db.from("apartment_invitations").select("id,invited_email,status,expires_at,accepted_by").eq("apartment_id",id).order("created_at",{ascending:false}).limit(50):Promise.resolve({data:[]})
+ ]);
+ if(seq!==state.aptSeq)return;
+ const err=r.error||m.error||b.error||i.error;
+ if(err)return errorNotice("Could not load apartment data.",err);
+ state.residents=r.data||[];state.members=m.data||[];state.bills=b.data||[];
+ state.invitations=i.data||[];state.alloc={};
+ if(state.bills.length){
+  const {data,error}=await db.from("apartment_allocations").select("id,bill_id,resident_id,resident_name,days,share,mode,custom_days,status").in("bill_id",state.bills.map(x=>x.id));
+  if(error)return errorNotice("Could not load bill allocations.",error);
+  for(const item of data||[]){(state.alloc[item.bill_id]??=[]).push(item)}
+ }
+ if(seq!==state.aptSeq)return;
+ label("#apartment-name",a.name);label("#apartment-code",a.code);
+ label("#apartment-role",state.owner?"Owner":"Member");
+ label("#dashboard-title",a.name);
+ renderAptOptions();
+ show("#apartment-gate",false);show("#apartment-app",true);
+ show("#owner-panel",state.owner);
+ for(const id of ["#bill-details-panel","#residents-panel","#summary-panel"])show(id,state.owner);
+ if(state.owner)blankDraft();
+ renderResidentTable();renderAccess();renderHistory();
+}
+
+function renderHistory(){
+ const root=$("#history");root.replaceChildren();
+ label("#history-count",state.bills.length+" periods");
+ if(!state.bills.length){root.append(el("p","muted","No saved bills yet."));return}
+ for(const bill of state.bills){
+  const allocations=state.alloc[bill.id]||[];
+  const panel=el("article","bill"),line=el("div","bill-line"),desc=el("div","bill-desc");
+  desc.append(el("strong",null,(types[bill.bill_type]||"Bill")+" · "+bill.bill_month.slice(5)+"/"+bill.bill_month.slice(0,4)));
+  desc.append(el("small",null,allocations.length+" residents · "+bill.billing_days+" days"));
+  line.append(desc,el("strong","bill-money",money(bill.amount)));panel.append(line);
+  const actions=el("div","bill-actions");
+  const toggle=el("button","mini",state.shown.has(bill.id)?"Hide details":"Details");
+  toggle.addEventListener("click",()=>{state.shown.has(bill.id)?state.shown.delete(bill.id):state.shown.add(bill.id);renderHistory()});
+  actions.append(toggle);
+  if(state.owner){
+   const edit=el("button","mini","Edit");
+   edit.addEventListener("click",()=>loadSavedBill(bill));
+   const del=el("button","mini red","Delete");
+   del.addEventListener("click",()=>deleteBill(bill));actions.append(edit,del);
+  }
+  panel.append(actions);
+  if(state.shown.has(bill.id)){
+   const detail=el("div","bill-detail");
+   for(const item of allocations){
+    const row=el("div","paid-row"),left=el("div"),right=el("div","payment-actions");
+    left.append(el("strong",null,item.resident_name+" · "+item.days+" days"));
+    left.append(el("small","payment-amount",money(item.share)));
+    const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
+    right.append(el("span","payment-badge "+item.status,statuses[item.status]||"Unpaid"));
+    if(state.owner&&item.status==="submitted"){
+     const confirm=el("button","mini","Confirm receipt");
+     confirm.addEventListener("click",async()=>{
+      confirm.disabled=true;
+      const {error}=await db.from("apartment_allocations").update({status:"confirmed"}).eq("id",item.id).eq("status","submitted");
+      if(error)errorNotice("Could not confirm payment.",error);
+      else{item.status="confirmed";renderHistory();toast("Payment confirmed.")}
+      confirm.disabled=false;
+     });
+     right.append(confirm);
+    }
+    const mine=state.residents.find(r=>r.id===item.resident_id&&r.user_id===state.user?.id);
+    if(!state.owner&&mine&&item.status==="unpaid"){
+     const report=el("button","mini","I have paid");
+     report.addEventListener("click",async()=>{
+      report.disabled=true;
+      const {error}=await db.rpc("mark_apartment_payment_sent",{p_allocation_id:item.id});
+      if(error)errorNotice("Could not report payment.",error);
+      else{item.status="submitted";renderHistory();toast("Payment reported to your apartment owner.")}
+      report.disabled=false;
+     });
+     right.append(report);
+    }
+    row.append(left,right);detail.append(row);
+   }
+   panel.append(detail);
+  }
+  root.append(panel);
+ }
+}
+function loadSavedBill(bill){
+ if(!state.owner||!confirm("Load this saved bill for editing? Current resident preferences are unchanged."))return;
+ state.draft={type:bill.bill_type,month:bill.bill_month,amount:String(bill.amount),start:bill.period_start||"",end:bill.period_end||""};
+ setDraft();$("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
+ toast("Bill loaded. Check the current resident list before saving.");
+}
+async function deleteBill(bill){
+ if(!state.owner||!confirm("Delete this bill and its saved payment statuses?"))return;
+ const {error}=await db.from("apartment_bills").delete().eq("id",bill.id).eq("apartment_id",state.apt.id);
+ if(error)return errorNotice("Could not delete the bill.",error);
+ state.bills=state.bills.filter(b=>b.id!==bill.id);delete state.alloc[bill.id];renderHistory();toast("Bill deleted.");
+}
+async function saveBill(){
+ if(!state.owner||validateBill())return;
+ clearTimeout(state.writeTimer);savePendingResidents();await state.writeChain;
+ const previous=state.bills.find(b=>b.bill_type===state.draft.type&&b.bill_month===state.draft.month);
+ if(previous&&!confirm("Overwrite the existing bill for this type and month? Payment statuses will be preserved."))return;
+ const period=billingPeriod(),items=split().map(x=>({resident_id:x.id,days:x.days,share:x.share,mode:x.mode,custom_days:x.custom_days}));
+ const button=$("#save");button.disabled=true;
+ try{
+  const {error}=await db.rpc("save_apartment_bill",{
+   p_apartment_id:state.apt.id,p_type:state.draft.type,p_month:state.draft.month,
+   p_amount:Number(state.draft.amount),p_days:period.days,p_items:items,
+   p_start:period.start,p_end:period.end
+  });
+  if(error)throw error;
+  toast("Bill saved successfully.");
+  await loadApartment(state.apt.id);
+ }catch(err){errorNotice("Could not save bill.",err)}
+ finally{renderResult()}
+}
+async function clipboard(data,message){
+ try{await navigator.clipboard.writeText(data);toast(message||"Copied.")}catch{toast("Your browser cannot copy to clipboard.")}
+}
+function copyBreakdown(){
+ const parts=split();if(!parts)return;
+ const lines=[types[state.draft.type]+" — "+state.draft.month,
+  "Apartment: "+state.apt.name,"Total: "+money(state.draft.amount),
+  "Period: "+billingPeriod().days+" days","",
+  ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+p.days+" days: "+money(p.share)),
+  "","TOTAL: "+money(parts.reduce((s,p)=>s+p.share,0))];
+ clipboard(lines.join("\n"),"Breakdown copied.");
+}
+function refreshLogin(){
+ const remain=Math.max(0,Math.ceil((state.loginUntil-Date.now())/1000));
+ const btn=$("#login-button");btn.disabled=state.loginBusy||remain>0;
+ btn.textContent=state.loginBusy?"Sending...":remain>0?"Try again in "+Math.ceil(remain/60)+" min":"Email me a sign-in link";
+ if(remain===0&&state.loginUntil){state.loginUntil=0;localStorage.removeItem("oghep-login-backoff-v1")}
+}
+setInterval(refreshLogin,1000);
+async function login(e){
+ e.preventDefault();if(state.loginBusy||Date.now()<state.loginUntil)return;
+ const email=$("#email").value.trim();if(!email)return;
+ state.loginBusy=true;refreshLogin();label("#authmsg","Sending a sign-in link...");
+ try{
+  const pending=sessionStorage.getItem("oghep-invite");
+  const redirect=pending?SITE+"/?invite="+pending:SITE+"/";
+  const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:redirect}});
+  if(error)throw error;
+  state.loginUntil=Date.now()+60000;
+  label("#authmsg","Check your inbox and spam folder for the sign-in link.");
+ }catch(err){
+  if(err?.status===429||String(err?.code||"").includes("rate_limit")){
+   state.loginUntil=Date.now()+30*60000;
+   label("#authmsg","Email sending is temporarily limited. Please try again in 30–60 minutes.");
+  }else{label("#authmsg","Could not send the sign-in link. Please try again.");console.error(err)}
+ }finally{
+  if(state.loginUntil)localStorage.setItem("oghep-login-backoff-v1",String(state.loginUntil));
+  state.loginBusy=false;refreshLogin();
+ }
+}
+function signOutView(){
+ state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
+ state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
+ show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
+ label("#sync-chip","Signed out");$("#sync-chip").classList.remove("connected");
+}
+$("#login-form").addEventListener("submit",login);
+$("#signout").addEventListener("click",async()=>{
+ const {error}=await db.auth.signOut();
+ if(error)errorNotice("Could not sign out.",error);else signOutView();
 });
-$("#signout").addEventListener("click",async()=>{const {error}=await db.auth.signOut();if(error)toast("Could not sign out. Please try again.");else showAuth()});
-$("#add-member").addEventListener("click",()=>{if(people.length>=70){toast("The limit is 70 residents.");return}people.push({id:id(),name:"Person "+(people.length+1),mode:"w4",customDays:0});renderMembers();renderResults();scheduleMembers();const inputs=document.querySelectorAll(".member-name");inputs[inputs.length-1]?.focus();inputs[inputs.length-1]?.select()});
-$("#bill-type").addEventListener("change",e=>{draft.type=e.target.value;writeDraft();renderResults()});
-$("#bill-month").addEventListener("change",e=>{if(/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)){draft.month=e.target.value;writeDraft();renderResults()}});
-$("#bill-amount").addEventListener("input",e=>{draft.amount=e.target.value;writeDraft();renderResults()});
-$("#billing-days").addEventListener("change",e=>{draft.days=Math.max(1,Math.min(366,Math.trunc(Number(e.target.value))||30));e.target.value=draft.days;writeDraft();renderMembers();renderResults()});
-$("#copy").addEventListener("click",async()=>{const parts=split();if(!parts)return;const lines=[types[draft.type]+" – "+draft.month.slice(5)+"/"+draft.month.slice(0,4),"Bill total: "+money(+draft.amount),"Billing period: "+draft.days+" days","",...parts.map((p,i)=>(i+1)+". "+p.name+" — "+p.days+" days: "+money(p.share)),"","TOTAL: "+money(parts.reduce((s,p)=>s+p.share,0))];try{await navigator.clipboard.writeText(lines.join("\n"));toast("Copied. Ready to share in your group chat.")}catch{toast("Clipboard access is unavailable in this browser.")}});
-$("#save").addEventListener("click",async()=>{const parts=split();if(!parts||!user||people.some(p=>!p.name.trim()))return;const existing=history.find(h=>h.bill_type===draft.type&&h.bill_month===draft.month);if(existing&&!confirm("A bill for this month and type exists. Replace it?"))return;$("#save").disabled=true;try{await writeQueue;const record={user_id:user.id,bill_type:draft.type,bill_month:draft.month,amount:Number(draft.amount),billing_days:draft.days,people:parts.map(p=>({name:p.name,days:p.days,share:p.share,mode:p.mode,customDays:p.customDays,paid:existing?.people.find(x=>x.name===p.name)?.paid||false})),updated_at:new Date().toISOString()};if(existing)record.id=existing.id;else record.id=id();const {data,error}=await db.from("bill_history").upsert(record,{onConflict:"user_id,bill_type,bill_month"}).select("id,bill_type,bill_month,amount,billing_days,people,created_at").single();if(error)throw error;history=[data,...history.filter(h=>h.id!==data.id)].sort((a,b)=>b.bill_month.localeCompare(a.bill_month));renderHistory();toast("Bill saved successfully.")}catch(err){toast("Could not save the bill. Please try again.")}finally{renderResults()}});
-db.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT"){showAuth();return}if(event==="SIGNED_IN"&&session?.user&&user?.id!==session.user.id)setTimeout(()=>loadAccount(session.user),0)});
-db.auth.getSession().then(({data,error})=>{if(error){showAuth();toast("Could not verify your session. Please sign in again.")}else if(data.session?.user)loadAccount(data.session.user);else showAuth()}).catch(()=>{showAuth();toast("Could not reach the server. Check your connection.")});
+$("#create-apartment-form").addEventListener("submit",createApartment);
+$("#accept-invite").addEventListener("click",acceptInvite);
+$("#manage-apartments").addEventListener("click",showGate);
+$("#apartment-select").addEventListener("change",e=>loadApartment(e.target.value));
+$("#copy-code").addEventListener("click",()=>state.apt&&clipboard(state.apt.code,"Apartment code copied."));
+$("#add-resident-form").addEventListener("submit",addResident);
+$("#invite-form").addEventListener("submit",sendInvitation);
+$("#copy-invite-link").addEventListener("click",()=>state.inviteLink&&clipboard(state.inviteLink,"Private invitation link copied."));
+$("#bill-type").addEventListener("change",e=>{state.draft.type=e.target.value;renderResult()});
+$("#bill-month").addEventListener("change",e=>{
+ if(/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(e.target.value)){
+  state.draft.month=e.target.value;renderResidentTable();
+ }
+});
+$("#bill-amount").addEventListener("input",renderMoney);
+for(const input of ["#period-start","#period-end"]){
+ $(input).addEventListener("change",e=>{
+  if(input==="#period-start")state.draft.start=e.target.value;else state.draft.end=e.target.value;
+  renderResidentTable();
+ });
+}
+$("#copy").addEventListener("click",copyBreakdown);
+$("#save").addEventListener("click",saveBill);
+db.auth.onAuthStateChange((event,session)=>{
+ if(event==="SIGNED_OUT"){signOutView();return}
+ if(event==="SIGNED_IN"&&session?.user)queueMicrotask(()=>loadUser(session.user));
+});
+db.auth.getSession().then(({data,error})=>{
+ if(error){signOutView();errorNotice("Could not verify your session.",error)}
+ else if(data.session?.user)loadUser(data.session.user);
+ else signOutView();
+}).catch(error=>{signOutView();errorNotice("Could not connect to the server.",error)});
