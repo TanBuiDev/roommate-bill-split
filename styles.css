@@ -515,3 +515,59 @@ h3{font-size:1.2rem;font-weight:700}
 @media(prefers-reduced-motion:reduce){
  .lang-switch__button{transition:none}
 }
+
+
+/* Unified household member manager */
+.household-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.household-head .panel-header{margin-bottom:0}
+.household-add-button{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.household-add-button svg{width:17px;height:17px}
+.household-summary{font-size:.79rem;color:#626262;margin:20px 0 12px;font-weight:550}
+.household-list{border:1px solid #e6e6e6;border-radius:14px;overflow:hidden;background:#fff}
+.household-row{display:flex;align-items:center;gap:13px;padding:15px 18px;min-height:74px}
+.household-row+.household-row{border-top:1px solid #ededed}
+.household-avatar{display:grid;place-items:center;flex:none;width:42px;height:42px;background:#eee;border-radius:999px;color:#171717;font-size:.81rem;font-weight:750;letter-spacing:-.03em}
+.household-person{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0;line-height:1.35}
+.household-person strong{font-size:.91rem;overflow-wrap:anywhere}
+.household-person small{font-size:.74rem;color:#858585;overflow-wrap:anywhere}
+.household-status{flex:none;padding:5px 11px;background:#f1f1f1;border-radius:999px;color:#555;font-size:.7rem;font-weight:650;white-space:nowrap}
+.household-status--joined{background:#e9f2ec;color:#27583d}
+.household-status--invited{background:#fff2dc;color:#835c22}
+.household-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:125px}
+.household-row-actions .mini{white-space:nowrap;border-radius:999px;min-height:34px;cursor:pointer}
+.household-row-action{background:#181818!important;color:#fff!important;border-color:#181818!important;padding-inline:16px}
+.household-row-action:hover{background:#353535!important}
+.household-empty{padding:33px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.household-empty strong{font-size:1.03rem}
+.household-empty p{margin:0;font-size:.83rem;color:#707070}
+.og-member-modal .og-modal__content{padding:clamp(20px,4vw,32px)}
+.member-dialog-form{display:grid;gap:17px;margin-top:23px}
+.member-dialog-form .field{display:grid;gap:7px}
+.member-dialog-form .field span{font-size:.82rem;font-weight:650}
+.member-dialog-form .control{width:100%}
+.member-dialog-form input[readonly]{background:#f5f5f5;color:#666}
+.member-form-error{font-size:.8rem;line-height:1.55;color:#a43832;margin:0}
+.member-dialog-actions{margin-top:10px}
+.member-dialog-actions .og-modal__button{font-size:.8rem;padding-inline:17px}
+#invite-fallback{margin:16px 0 0}
+@media(max-width:767px){
+ .household-head{align-items:flex-start}
+ .household-row{gap:10px;padding:13px 12px;flex-wrap:wrap}
+ .household-avatar{width:38px;height:38px}
+ .household-row-actions{min-width:0;margin-left:auto}
+ .household-status{font-size:.67rem}
+}
+@media(max-width:480px){
+ .household-add-button{width:100%;justify-content:center}
+ .household-person{flex-basis:calc(100% - 64px)}
+ .household-status{margin-left:50px}
+ .household-row-actions{flex:1;justify-content:flex-end}
+ .household-row-actions .mini{font-size:.74rem}
+ .member-dialog-actions{display:grid;grid-template-columns:1fr 1fr}
+ .member-dialog-actions #member-dialog-cancel{grid-column:1/-1;order:2}
+ .member-dialog-actions #member-add-only{order:0}
+ .member-dialog-actions #member-add-invite{order:1}
+ .member-dialog-actions .og-modal__button{width:100%;padding:12px 10px}
+ .member-dialog-actions #member-add-only[hidden]{display:none}
+ .member-dialog-actions #member-add-only[hidden]+#member-add-invite{grid-column:1/-1}
+}
