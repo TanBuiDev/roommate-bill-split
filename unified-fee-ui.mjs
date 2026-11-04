@@ -431,7 +431,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     id:p.resident_id,name:p.resident_name,amount:p.amount,days:daysById.get(p.resident_id)
    })),
    total:result.total
-  },{t,money});
+  },{t});
  }
  async function writeClipboard(textValue){
   if(!textValue)return;
@@ -461,7 +461,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     days:daysById[p.resident_id]
    })),
    total:period.total
-  },{t,money});
+  },{t});
  }
  function openPeriodDetail(period){
   const detail=node("div","fee-history-details history-detail-body");
