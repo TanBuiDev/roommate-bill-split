@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
+import { confirmAction } from "./ui-modal.mjs";
 const SITE="https://oghep.pages.dev";
 const SUPA_URL="https://loovjgylbookhouxjkaf.supabase.co";
 const SUPA_KEY="sb_publishable_i-HRVZm2rY7SUl1w-iJAdA_KAPi2H8h";
@@ -175,7 +176,15 @@ function renderResidentTable(){
  renderInviteOptions();renderResult();
 }
 async function removeResident(p){
- if(!state.owner||!confirm("Remove "+p.name+"? Saved bill snapshots remain intact."))return;
+ if(!state.owner)return;
+ const confirmed=await confirmAction({
+  title:"Remove resident?",
+  message:"Remove "+p.name+" from this apartment? Saved bill snapshots will remain intact.",
+  confirmText:"Remove resident",
+  cancelText:"Keep resident",
+  tone:"danger"
+ });
+ if(!confirmed)return;
  clearTimeout(state.writeTimer);state.dirty.delete(p.id);
  const {error}=await db.from("apartment_residents").delete().eq("id",p.id).eq("apartment_id",state.apt.id);
  if(error)return errorNotice("Could not remove resident.",error);
@@ -209,7 +218,14 @@ function renderAccess(){
   if(m.role!=="owner"){
    const remove=el("button","mini","Remove access");
    remove.addEventListener("click",async()=>{
-    if(!confirm("Remove this member's apartment access?"))return;
+    const confirmed=await confirmAction({
+     title:"Remove member access?",
+     message:"This person will lose access to the apartment and its bills. Saved bill snapshots are not affected.",
+     confirmText:"Remove access",
+     cancelText:"Keep member",
+     tone:"danger"
+    });
+    if(!confirmed)return;
     const {error}=await db.rpc("remove_apartment_member",{p_apartment_id:state.apt.id,p_user_id:m.user_id});
     if(error)return errorNotice("Could not remove member.",error);
     await loadApartment(state.apt.id);
@@ -225,6 +241,14 @@ function renderAccess(){
   line.append(el("span",null,invitation.invited_email+" · expires "+new Date(invitation.expires_at).toLocaleDateString("en-GB")));
   const revoke=el("button","mini","Revoke");
   revoke.addEventListener("click",async()=>{
+   const confirmed=await confirmAction({
+    title:"Revoke invitation?",
+    message:"This invitation link will stop working. You can send a new invitation later.",
+    confirmText:"Revoke invitation",
+    cancelText:"Keep invitation",
+    tone:"danger"
+   });
+   if(!confirmed)return;
    const {error}=await db.rpc("revoke_apartment_invitation",{p_invite_id:invitation.id});
    if(error)return errorNotice("Could not revoke invitation.",error);
    state.invitations=state.invitations.filter(x=>x.id!==invitation.id);
@@ -428,14 +452,29 @@ function renderHistory(){
   root.append(panel);
  }
 }
-function loadSavedBill(bill){
- if(!state.owner||!confirm("Load this saved bill for editing? Current resident preferences are unchanged."))return;
+async function loadSavedBill(bill){
+ if(!state.owner)return;
+ const confirmed=await confirmAction({
+  title:"Load saved bill?",
+  message:"Load this bill into the editor? Your current resident preferences will stay unchanged.",
+  confirmText:"Load bill",
+  cancelText:"Cancel"
+ });
+ if(!confirmed)return;
  state.draft={type:bill.bill_type,month:bill.bill_month,amount:String(bill.amount),start:bill.period_start||"",end:bill.period_end||""};
  setDraft();$("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
  toast("Bill loaded. Check the current resident list before saving.");
 }
 async function deleteBill(bill){
- if(!state.owner||!confirm("Delete this bill and its saved payment statuses?"))return;
+ if(!state.owner)return;
+ const confirmed=await confirmAction({
+  title:"Delete this bill?",
+  message:"The bill and its saved payment statuses will be deleted. This cannot be undone.",
+  confirmText:"Delete bill",
+  cancelText:"Keep bill",
+  tone:"danger"
+ });
+ if(!confirmed)return;
  const {error}=await db.from("apartment_bills").delete().eq("id",bill.id).eq("apartment_id",state.apt.id);
  if(error)return errorNotice("Could not delete the bill.",error);
  state.bills=state.bills.filter(b=>b.id!==bill.id);delete state.alloc[bill.id];renderHistory();toast("Bill deleted.");
@@ -444,7 +483,15 @@ async function saveBill(){
  if(!state.owner||validateBill())return;
  clearTimeout(state.writeTimer);savePendingResidents();await state.writeChain;
  const previous=state.bills.find(b=>b.bill_type===state.draft.type&&b.bill_month===state.draft.month);
- if(previous&&!confirm("Overwrite the existing bill for this type and month? Payment statuses will be preserved."))return;
+ if(previous){
+  const confirmed=await confirmAction({
+   title:"Replace existing bill?",
+   message:"A bill for this type and month already exists. Replace its amounts? Existing payment statuses will be preserved.",
+   confirmText:"Replace bill",
+   cancelText:"Keep existing bill"
+  });
+  if(!confirmed)return;
+ }
  const period=billingPeriod(),items=split().map(x=>({resident_id:x.id,days:x.days,share:x.share,mode:x.mode,custom_days:x.custom_days}));
  const button=$("#save");button.disabled=true;
  try{
