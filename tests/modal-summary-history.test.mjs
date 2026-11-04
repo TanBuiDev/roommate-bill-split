@@ -31,7 +31,8 @@ test("Add and edit use isolated working copies; cancel does not change saved dra
  assert.match(commit,/groups\.push\(candidate\)/);
  assert.ok(commit.includes("const verdict=calculateSelection([{...candidate,enabled:true}]"));
  assert.ok(commit.includes("idx>=0"));
- assert.ok(commit.includes("dirty=true;store();cancelBill();renderSummary()"));
+ assert.ok(commit.includes("dirty=true;store();cancelBill();"));
+ assert.ok(commit.includes("renderCatalog();renderSummary()"));
 });
 test("C is one card with a single total in the resident breakdown",()=>{
  assert.ok(layout.includes('const totalCard=create("section","bill-summary-card"'));
