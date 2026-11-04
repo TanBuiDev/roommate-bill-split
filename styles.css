@@ -1572,6 +1572,8 @@ body.app-active #bill-summary-card .ub-actions button{
 body.app-active #bill-summary-card .ub-actions svg{width:20px;height:20px}
 body.app-active #bill-summary-card .ub-actions button:hover:not(:disabled){transform:translateY(-1px)}
 body.app-active #bill-summary-card #ub-info{margin:0;font-size:.72rem;line-height:1.5;color:#7a7a7a}
+body.app-active #billing-history-panel .history{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+body.app-active #billing-history-panel .fee-history{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
 body.app-active #billing-history-panel .history-head{
  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px
 }
