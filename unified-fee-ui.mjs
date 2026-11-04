@@ -346,7 +346,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const lines=[period.name+" · "+period.bill_month,t("Total")+": "+money(period.total),""];
   for(const item of period.items||[]){
    const original=item.original_amount??item.amount;
-   lines.push((item.enabled===false?"[Excluded] ":"")+item.name+": "+money(original));
+   lines.push((item.enabled===false?"["+t("Excluded")+"] ":"")+t(item.name)+": "+money(original));
   }
   lines.push("",t("Per-person total")+":");
   for(const pay of payments.filter(x=>x.period_id===period.id))lines.push(pay.resident_name+": "+money(pay.amount));
@@ -390,7 +390,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     const detail=node("div","fee-history-details");
     for(const item of period.items||[]){
      const row=node("div","fee-history-charge");
-     row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+item.name),node("strong",null,money(item.original_amount??item.amount)));
+     row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+t(item.name)),node("strong",null,money(item.original_amount??item.amount)));
      detail.append(row);
     }
     for(const pay of payments.filter(x=>x.period_id===period.id)){
@@ -400,7 +400,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
      byBill.append(node("summary",null,t("View fee details")));
      for(const item of period.items||[]){
       const amount=(item.allocations||[]).find(a=>a.resident_id===pay.resident_id)?.share||0;
-      if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,item.name),node("strong",null,money(amount)));byBill.append(line)}
+      if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,t(item.name)),node("strong",null,money(amount)));byBill.append(line)}
      }
      info.append(byBill);
      const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
