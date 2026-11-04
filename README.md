@@ -26,7 +26,7 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 
 1. Sign in by email magic link (existing Auth email provider).
 2. Create an apartment. The server assigns a unique code (OG-...); this code is **not** an access credential.
-3. When creating a new apartment, owners can choose to import existing resident records. The legacy import is deduplicated by normalized name and prioritizes non-default duration selections. No legacy rows are deleted.
+3. Every new apartment starts empty. Residents are added by its owner; no old private records are imported.
 4. Add or edit apartment residents. Only the owner may modify the roster, billing-period inputs and bill history.
 5. Invite a resident by email. The server generates a 256-bit random invite token, stores only its SHA-256 hash, and expires it after 7 days. The invited recipient must verify the matching email before joining. Invitation email is currently sent as an **authentication sign-in/confirmation link** through the existing email service, with the private invite token in the return URL. A copy-link fallback is available if the email service hits quota or fails.
 6. Members can view shared bill history and report **their own** payments. The owner confirms receipt; a member cannot independently mark themselves as paid/received.
@@ -56,13 +56,13 @@ SQL RPCs:
 
 All privileged RPCs check authentication and enforce owner or member role. Invitation acceptance additionally verifies the recipient email matches. The unique resident name index prevents repeating the same resident in one apartment.
 
-Legacy tables remain unchanged: room_members, room_preferences, bill_history. A private backup of the old room_members data exists in app_private.legacy_member_backup. **Do not drop legacy tables or backup until data has been verified and an intentional migration plan is agreed.**
+Legacy tables remain unchanged: room_members, room_preferences, bill_history. A private, administrator-only backup of legacy room_members data exists in app_private.legacy_member_backup. Community users cannot import it. **Do not drop legacy tables or backup until data has been verified and an intentional migration plan is agreed.**
 
 ## Regression tests/checklist
 
 - Login/signout and email links; accept invite with invited email, reject other email.
 - Create apartment, show apartment code, choose/switch apartments.
-- Import legacy names: seven unique Tấn, Tiến, Thành, Huy, Nhựt, Kiệt, Hậu from 21 duplicated rows without modifying originals.
+- New apartments start with zero residents; never import private data or display a legacy import toggle.
 - Verify owner-only actions; member can read but cannot create/edit bills or manage residents.
 - Invite, revoke, expiry, one-time acceptance and owner/remove access.
 - Number grouping while typing; no invalid amount; 28/29/30/31 day calendar months.
