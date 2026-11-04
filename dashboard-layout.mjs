@@ -27,7 +27,7 @@ export function installDashboardLayout({t}){
  const dayRight=create("span","bill-days-toggle-side");
  dayRight.append(create("span","bill-days-count","bill-days-count"));
  const chevron=create("span","bill-days-chevron");
- chevron.setAttribute("aria-hidden","true");chevron.textContent="⌄";
+ chevron.setAttribute("aria-hidden","true");
  dayRight.append(chevron);
  dayHeader.append(dayLeft,dayRight);
  daySection.append(dayHeader,residents);
