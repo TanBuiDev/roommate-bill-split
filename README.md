@@ -119,6 +119,20 @@ The application uses `confirmAction({title, message, confirmText, cancelText, to
 - **Authentication email templates are configured separately in the server's email settings.** This switch does not automatically translate emails sent by that service.
 
 
+## Three-step authenticated dashboard UI
+
+The signed-in application is a clean workspace rather than the public marketing landing. The public hero/features/use-cases/pricing/footer remain available when signed out. Logged-in owners see these sections:
+
+1. **Members** — apartment roster, invitations and access controls (the apartment switcher is always visible).
+2. **Calculate monthly bills** — billing month, collapsible **A. Residents & days** (reusing the current desktop week/full-period table and its responsive resident cards), **B. Bills for this month** (multiple built-in/custom grouped charges, include/exclude checkboxes), and **C. Totals & allocations** (per-person result, save and share).
+3. **Payment history** — one history panel containing monthly settlements and earlier standalone bills, both retaining copy/share/payment status/edit/delete actions as authorized.
+
+This is a layout refactor: the `dashboard-layout.mjs` module **moves** the existing live resident board and multi-fee history into the new sections, without recreating its controls or changing their event bindings. It also adds authenticated application navigation and hides marketing sections only after authentication. Old standalone bills remain editable through their explicit history action.
+
+Non-owner apartment members can view the consolidated saved history; owner-only calculation and management controls stay hidden. The selected billing month controls the **Full period** number of days. Optional meter-reading dates are applied only when explicitly editing a legacy standalone bill, not when calculating a new monthly settlement.
+
+The layout has DOM smoke tests in `tests/dashboard-layout.test.mjs`, and its production code is syntax-tested by the existing GitHub Actions pipeline. All new application files are automatically included in the static Cloudflare Pages upload.
+
 ## Unified monthly billing (new editor)
 
 - The visible bill editor is unified: one month, many bill categories, one selected-total and one resident breakdown. The old Simple/Multi tab switch is hidden. Older single bills and payment history remain readable; existing database rows are not migrated or deleted.
