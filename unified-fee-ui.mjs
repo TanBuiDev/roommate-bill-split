@@ -27,7 +27,7 @@ const parseMoney=value=>Math.min(maxAmount,Number(String(value||"").replace(/[^0
 const copy=value=>JSON.parse(JSON.stringify(value));
 const uuid=()=>crypto.randomUUID();
 
-export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved,onMonthChange}){
+export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved,onMonthChange,onHistoryChanged}){
  let apt=null,owner=false,residents=[],periods=[],templates=[],payments=[];
  let month=nowMonth(),groups=[],selectedType="electric",editing=null,dirty=false,pending=false,loaded=false;
  let reloadSaved=false,shown=new Set(),newType={name:"",fees:[{name:"",method:"days"}]},typeBeingEdited=null;
@@ -87,8 +87,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  function setVisible(id,yes){el(id)?.classList.toggle("hidden",!yes)}
  const html=String.raw`
   <div class="ub-intro"><div>
-    <h4 id="ub-heading">Monthly billing</h4>
-    <p id="ub-caption">Add each bill, then select the charges to include in this month's settlement.</p>
+    <h4 id="ub-heading">Billing period</h4>
+    <p id="ub-caption">Select a month to calculate the full billing period.</p>
    </div><label class="field ub-month-label"><span id="ub-month-text">Billing month</span><input class="control" type="month" id="ub-month"></label></div>
   <div class="ub-add-row">
    <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
@@ -148,12 +148,12 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const dialog=el("ub-type-dialog");
   document.body.append(dialog);
   el("fee-mode-controls").classList.add("hidden");
-  el("fee-title").textContent=t("Monthly billing");
+  el("fee-title").textContent=t("Calculate monthly bills");
   const caption=el("fee-title").nextElementSibling;
-  if(caption)caption.textContent=t("Enter bills, choose which to include, and review each resident's total.");
+  if(caption)caption.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const legacy=el("fee-history")?.closest(".fee-history-wrap");
   if(legacy){
-   const h=legacy.querySelector("h4");if(h)h.textContent=t("Saved monthly settlements");
+   const h=legacy.querySelector("h4");if(h)h.textContent=t("Monthly settlements");
    const p=legacy.querySelector(".fee-history-head p");if(p)p.textContent=t("Saved periods and payment progress.");
   }
   el("ub-type").addEventListener("change",e=>{selectedType=e.target.value;refreshTypeActions()});
@@ -186,7 +186,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  const previewGroup=g=>{
   const value=groupTotal(g);
-  return t("{count} fee items",{count:g.fees.length})+" · "+money(value);
+  return t("{count} charges",{count:g.fees.length})+" · "+money(value);
  };
  function refreshTypeActions(){
   const isCustom=selectedType.startsWith("custom:");
@@ -353,6 +353,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   return lines.join("\n");
  }
  function renderHistory(){
+  onHistoryChanged?.(periods.length);
   const root=el("fee-history");root.replaceChildren();
   if(!periods.length){root.append(node("p","muted",t("No saved bills yet.")));return}
   for(const period of periods){
@@ -519,7 +520,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const changed=apt!==apartment;
   apt=apartment;owner=ownerFlag;residents=roster||[];
   if(changed){month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
-  setVisible("fee-workspace",true);
+  setVisible("fee-workspace",owner);
   setVisible("fee-editor",owner);
   setVisible("fee-mode-controls",false);
   const [p,tpl]=await Promise.all([
@@ -547,7 +548,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  function retranslate(){
   if(!el("ub-heading"))return;
   const keys=[
-   ["ub-heading","Monthly billing"],["ub-caption","Add each bill, then select the charges to include in this month's settlement."],
+   ["ub-heading","Billing period"],["ub-caption","Select a month to calculate the full billing period."],
    ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add","Add bill"],
    ["ub-new-type","+ Create custom bill type"],["ub-edit-type","Edit custom type"],["ub-delete-type","Delete custom type"],
    ["ub-cancel","Close"],["ub-form-total-label","Bill subtotal"],["ub-done","Done editing"],
@@ -560,10 +561,10 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    ["ub-add-subfee","+ Add subfee"],["ub-type-cancel","Close"],["ub-type-save","Save bill type"]
   ];
   for(const [id,key] of keys){const e=el(id);if(e)e.textContent=t(key)}
-  el("fee-title").textContent=t("Monthly billing");
-  const desc=el("fee-title").nextElementSibling;if(desc)desc.textContent=t("Enter bills, choose which to include, and review each resident's total.");
+  el("fee-title").textContent=t("Calculate monthly bills");
+  const desc=el("fee-title").nextElementSibling;if(desc)desc.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const head=el("fee-history")?.closest(".fee-history-wrap")?.querySelector("h4");
-  if(head)head.textContent=t("Saved monthly settlements");
+  if(head)head.textContent=t("Monthly settlements");
   const hdesc=el("fee-history")?.closest(".fee-history-wrap")?.querySelector(".fee-history-head p");
   if(hdesc)hdesc.textContent=t("Saved periods and payment progress.");
   const options=el("ub-new-method").options;
