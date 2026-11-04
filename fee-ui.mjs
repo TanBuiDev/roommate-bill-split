@@ -42,6 +42,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  };
  const daysForResident=p=>{
   const limit=periodDays();
+  if(p.mode==="full")return limit;
   if(p.mode==="custom")return Math.min(limit,Math.max(0,Math.floor(Number(p.custom_days)||0)));
   return Math.min(limit,[1,2,3,4].includes(Number(String(p.mode||"w4").slice(1)))?
     Number(String(p.mode).slice(1))*7:28);
