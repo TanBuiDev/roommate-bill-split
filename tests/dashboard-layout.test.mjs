@@ -15,6 +15,7 @@ class FakeElement {
     yes?this.classList.names.add(x):this.classList.names.delete(x);return yes;
    }
   };
+  Object.defineProperty(this,"className",{get:()=>[...this.classList.names].join(" "),set:value=>{this.classList.names=new Set(String(value||"").split(/\s+/).filter(Boolean))}});
   this.dataset={};this.attributes={};this.textContent="";this.href="";this.open=false;
  }
  append(...items){for(const item of items){this.#remove(item);this.children.push(item);item.parentElement=this}}
@@ -78,7 +79,7 @@ function setup(){
 }
 test("authenticated dashboard composes a single month flow and moves existing history nodes",()=>{
  const {document,fee,editor,residentPanel,history,feeHistory}=setup();
- const layout=installDashboardLayout({t:k=>k});
+ const layout=installDashboardLayout({t:(key,params={})=>key.replace(/\{(\w+)\}/g,(_,name)=>String(params[name]??"{"+name+"}"))});
  const days=document.getElementById("bill-days-step");
  assert.equal(residentPanel.parentElement,days);
  assert.equal(days.parentElement,editor);
@@ -107,7 +108,7 @@ test("authenticated dashboard composes a single month flow and moves existing hi
 
 test("member account hides owner-only navigation, without duplicating day controls",()=>{
  const {document,editor}=setup();
- const layout=installDashboardLayout({t:k=>k});
+ const layout=installDashboardLayout({t:(key,params={})=>key.replace(/\{(\w+)\}/g,(_,name)=>String(params[name]??"{"+name+"}"))});
  layout.setSignedIn(true);layout.setApartment(false);
  const member=document.querySelector(".app-nav-members");
  assert.equal(member.classList.contains("hidden"),true);
