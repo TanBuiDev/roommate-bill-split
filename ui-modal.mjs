@@ -1,3 +1,5 @@
+import {t} from "./i18n/index.mjs";
+
 /**
  * Ở Ghép reusable branded dialog.
  * Usage: await confirmAction({title, message, confirmText, tone:"danger"})
@@ -82,13 +84,14 @@ function showNext() {
   dialog.dataset.tone = isDanger ? "danger" : "neutral";
   dialog.dataset.kind = kind === "notice" ? "notice" : "confirm";
   dialog.querySelector("[data-modal-symbol]").innerHTML = icons[isDanger ? "danger" : "neutral"];
-  dialog.querySelector("#og-modal-title").textContent = title;
-  dialog.querySelector("#og-modal-description").textContent = message;
+  dialog.querySelector("[data-modal-close]").setAttribute("aria-label",t("Close dialog"));
+  dialog.querySelector("#og-modal-title").textContent = t(title);
+  dialog.querySelector("#og-modal-description").textContent = t(message);
   const cancel = dialog.querySelector("[data-modal-cancel]");
   const confirm = dialog.querySelector("[data-modal-confirm]");
-  cancel.textContent = cancelText;
+  cancel.textContent = t(cancelText);
   cancel.hidden = kind === "notice";
-  confirm.textContent = confirmText;
+  confirm.textContent = t(confirmText);
   previouslyFocused = document.activeElement;
   dialog.showModal();
   (kind === "notice" ? confirm : cancel).focus();
