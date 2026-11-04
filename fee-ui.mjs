@@ -213,6 +213,49 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   try{await navigator.clipboard.writeText(value);toast("Share unavailable. Breakdown copied instead.")}
   catch(err){errorNotice("Sharing failed. Please try again.",err)}
  };
+ const summarizeSavedPeriod=period=>{
+  const items=Array.isArray(period.items)?period.items:[];
+  if(!items.length)return "";
+  const lines=[
+   period.name+" · "+period.bill_month,
+   t("Total")+": "+money(period.total),
+   "",
+   ...items.map(item=>t(item.name)+": "+money(item.amount)),
+   "",
+   t("Per-person total")+":"
+  ];
+  const payList=payments.filter(pay=>pay.period_id===period.id);
+  for(const pay of payList)lines.push(pay.resident_name+": "+money(pay.amount));
+  return lines.join("\n");
+ };
+ const copySavedPeriod=async period=>{
+  const value=summarizeSavedPeriod(period);
+  if(!value)return toast("Saved bill details unavailable. Refresh history.");
+  try{
+   await navigator.clipboard.writeText(value);
+   toast("Saved bill copied.");
+  }catch(err){
+   // Some mobile embedded browsers do not support navigator.clipboard.
+   const input=document.createElement("textarea");
+   input.value=value;input.readOnly=true;
+   input.style.position="fixed";input.style.left="-9999px";
+   document.body.append(input);input.select();
+   let ok=false;
+   try{ok=!!document.execCommand?.("copy")}catch{}
+   input.remove();
+   if(ok)toast("Saved bill copied.");
+   else errorNotice("Your browser cannot copy to clipboard.",err);
+  }
+ };
+ const shareSavedPeriod=async period=>{
+  const value=summarizeSavedPeriod(period);
+  if(!value)return toast("Saved bill details unavailable. Refresh history.");
+  if(typeof navigator.share==="function"){
+   try{await navigator.share({title:period.name,text:value});return}
+   catch(err){if(err?.name==="AbortError")return}
+  }
+  await copySavedPeriod(period);
+ };
  const renderHistory=()=>{
   const root=byId("fee-history");root.replaceChildren();
   if(!periods.length){root.append(node("p","muted",t("No multi-fee periods yet.")));return}
@@ -227,6 +270,11 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const toggle=node("button","mini",t(open?"Hide details":"Details"));toggle.type="button";
    toggle.addEventListener("click",()=>{open?expanded.delete(period.id):expanded.add(period.id);renderHistory()});
    actions.append(toggle);
+   const copyButton=node("button","mini",t("Copy bill"));copyButton.type="button";
+   copyButton.addEventListener("click",()=>copySavedPeriod(period));
+   const shareButton=node("button","mini",t("Share bill"));shareButton.type="button";
+   shareButton.addEventListener("click",()=>shareSavedPeriod(period));
+   actions.append(copyButton,shareButton);
    if(owner){
     const duplicate=node("button","mini",t("Copy to editor"));duplicate.type="button";
     duplicate.addEventListener("click",()=>{
