@@ -182,7 +182,11 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    }
    selectedType=next;openSelectedType();
   });
-  el("ub-add").addEventListener("click",openSelectedType);
+  el("ub-add").addEventListener("click",()=>{
+   const unused=catalog().find(type=>!groups.some(group=>group.id===type.id));
+   if(unused)selectedType=unused.id;
+   openSelectedType();
+  });
   el("ub-modal-close").addEventListener("click",cancelBill);
   billDialog.addEventListener("cancel",e=>{e.preventDefault();cancelBill()});
   el("ub-new-type").addEventListener("click",()=>openTypeDialog());
