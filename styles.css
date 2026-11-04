@@ -599,3 +599,85 @@ h3{font-size:1.2rem;font-weight:700}
 /* Manual synchronization guidance near the Refresh control. */
 .refresh-note{font-size:.74rem;color:#777;line-height:1.4;max-width:260px}
 @media(max-width:600px){.history-live-actions{justify-content:flex-start}.refresh-note{flex-basis:100%}}
+
+
+/* Multi-fee billing — black/white shared-apartment design system. */
+.fee-workspace{min-width:0}
+.fee-mode-controls{display:inline-flex;gap:4px;padding:4px;background:#efefef;border:1px solid #dedede;border-radius:999px;margin:6px 0 20px}
+.fee-mode-button{cursor:pointer;border:0;background:transparent;border-radius:999px;padding:10px 20px;font-size:.82rem;font-weight:700;color:#5d5d5d;transition:background-color .2s,color .2s}
+.fee-mode-button.active{background:#171717;color:#fff}
+.fee-editor{display:grid;gap:22px}
+.fee-start{padding:20px;background:#f5f5f5;border-radius:14px}
+.fee-start-head h4,.fee-line-header h4,.fee-history-head h4{font-weight:760;letter-spacing:-.02em;font-size:1.15rem;margin:0 0 4px}
+.fee-start-head p,.fee-history-head p{color:#777;font-size:.82rem;margin:0}
+.fee-start-tools{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-top:18px}
+.fee-start-tools .field{flex:1 1 240px;min-width:0}
+.fee-start-tools .button{flex:0 0 auto;min-height:46px}
+.fee-period-fields{display:grid;grid-template-columns:minmax(0,240px) minmax(0,1fr);gap:15px}
+.fee-line-header,.fee-history-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.fee-items{display:grid;gap:12px}
+.fee-item{border:1px solid #dedede;border-radius:14px;overflow:hidden;background:#fff}
+.fee-item-top{padding:15px;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(125px,.8fr) minmax(145px,1fr) auto;gap:12px;align-items:end}
+.fee-item label,.fee-period-fields label,.fee-start-tools label,.fee-template-save label{display:grid;gap:6px}
+.fee-item .field span,.fee-period-fields .field span,.fee-start-tools .field span,.fee-template-save .field span{font-size:.76rem;font-weight:650}
+.fee-item .control{width:100%;min-width:0;box-sizing:border-box}
+.fee-item-delete{align-self:end;min-height:42px;padding:0 14px;cursor:pointer;border:1px solid #ddd;background:white;color:#7e2626;border-radius:999px;font-weight:650}
+.fee-item-details{border-top:1px solid #eee;padding:12px 15px;background:#fafafa}
+.fee-item-details>summary{font-size:.82rem;font-weight:700;cursor:pointer;color:#3e3e3e}
+.fee-people-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:16px 0 8px}
+.fee-person{display:flex;align-items:center;gap:9px;min-width:0;background:#fff;border:1px solid #e3e3e3;border-radius:11px;padding:10px 12px}
+.fee-person>label{display:flex;gap:8px;align-items:center;min-width:0;flex:1;font-size:.8rem}
+.fee-person input[type=checkbox]{width:17px;height:17px;accent-color:#171717;flex:none}
+.fee-person-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fee-person small{font-size:.71rem;color:#777}
+.fee-person input[type=number]{width:75px;min-width:0;padding:9px 8px;border:1px solid #ddd;border-radius:8px;text-align:right;background:#fff}
+.fee-person input[type=number]:focus,.fee-item .control:focus{outline:2px solid #171717;outline-offset:1px}
+.fee-rule-note{font-size:.76rem;color:#777;line-height:1.5;margin:0 0 10px}
+.fee-item-preview{padding:12px 15px;border-top:1px solid #eee;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.fee-item-preview small{color:#666;font-size:.76rem}
+.fee-item-preview strong{font-weight:750}
+.fee-total{display:flex;justify-content:space-between;gap:15px;border-top:1px solid #e4e4e4;padding:18px 3px;font-weight:700}
+.fee-total strong{font-size:1.4rem}
+.fee-editor-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.fee-template-save{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;padding:20px;background:#f5f5f5;border-radius:13px}
+.fee-template-save>.field{flex:1 1 230px}
+.fee-template-save .data-note{flex-basis:100%;margin:4px 0 0}
+.fee-history-wrap{margin-top:26px;padding-top:20px;border-top:1px solid #e6e6e6}
+.fee-history{display:grid;gap:10px;margin-top:14px}
+.fee-history-card{border:1px solid #e1e1e1;border-radius:13px;overflow:hidden;background:#fff}
+.fee-history-summary{padding:15px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.fee-history-summary strong{font-weight:750}
+.fee-history-summary small{color:#777}
+.fee-history-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fee-history-details{padding:16px;border-top:1px solid #eee;background:#fafafa}
+.fee-history-charge{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:.84rem}
+.fee-history-charge+.fee-history-charge{border-top:1px dashed #ddd}
+.fee-history-payment{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #ececec}
+.fee-history-payment>div:first-child{min-width:0}
+.fee-history-payment strong,.fee-history-payment small{display:block}
+.fee-history-payment small{font-size:.74rem;color:#777;margin-top:4px}
+.fee-history-payment-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.fee-hint{color:#777;font-size:.76rem}
+.fee-template-save .mini,.fee-history-actions .mini,.fee-history-payment-actions .mini{cursor:pointer}
+@media(max-width:850px){
+ .fee-item-top{grid-template-columns:minmax(0,1fr) minmax(125px,.65fr)}
+ .fee-item-delete{justify-self:end}
+}
+@media(max-width:600px){
+ .fee-workspace{padding-inline:15px}
+ .fee-mode-controls{display:flex;width:100%;box-sizing:border-box}
+ .fee-mode-button{flex:1;padding:11px 8px}
+ .fee-period-fields{grid-template-columns:1fr}
+ .fee-start-tools{flex-direction:column;align-items:stretch}
+ .fee-start-tools>*{width:100%;box-sizing:border-box}
+ .fee-item-top{grid-template-columns:1fr}
+ .fee-item-delete{justify-self:stretch}
+ .fee-people-list{grid-template-columns:1fr}
+ .fee-editor-actions .button{width:100%}
+ .fee-template-save>.button{width:100%}
+ .fee-history-summary{align-items:flex-start}
+ .fee-history-actions{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+ .fee-mode-button{transition:none}
+}
