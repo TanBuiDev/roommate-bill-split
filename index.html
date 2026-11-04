@@ -146,7 +146,7 @@
               <h4 class="minor-title">Pending invitations</h4><div id="pending-invitations" class="access-list"></div>
             </section>
 
-          <section class="panel" aria-labelledby="bill-title">
+          <section class="panel" id="bill-details-panel" aria-labelledby="bill-title">
             <div class="panel-header"><span class="step-number">01</span><div><h3 id="bill-title">Bill details</h3><p>Select a bill type, billing month and total amount</p></div></div>
             <div class="bill-grid">
               <label class="field"><span>Bill type</span><select class="control" id="bill-type"><option value="electric">Electricity</option><option value="water">Water</option><option value="internet">Internet</option><option value="other">Other expenses</option></select></label>
@@ -156,7 +156,7 @@
             <div class="billing-period"><strong id="period-days-note">30 calendar days</strong><span>Calculated from the selected month</span></div>
             <details class="advanced-period" id="advanced-period"><summary>Use exact meter-reading dates (optional)</summary><div class="range-fields"><label class="field"><span>From</span><input class="control" id="period-start" type="date"></label><label class="field"><span>To (inclusive)</span><input class="control" id="period-end" type="date"></label></div><p class="data-note">Leave both dates empty to use the full calendar month.</p></details>
           </section>
-          <section class="panel" aria-labelledby="members-title">
+          <section class="panel" id="residents-panel" aria-labelledby="members-title">
             <div class="panel-header"><span class="step-number">02</span><div><h3 id="members-title">Residents &amp; days</h3><p>Pick a weekly shortcut or enter the exact number of days</p></div></div>
             <div class="table-intro"><strong id="member-count">0 residents</strong><span>Changes to this list are saved automatically</span></div>
             <div class="member-board" role="region" tabindex="0" aria-label="Residents and their share of the bill">
@@ -173,7 +173,7 @@
             </div>
             
           </section>
-          <section class="panel" aria-labelledby="summary-title">
+          <section class="panel" id="summary-panel" aria-labelledby="summary-title">
             <div class="panel-header"><span class="step-number">03</span><div><h3 id="summary-title">Review &amp; save</h3><p>Every allocated amount adds up to the original bill</p></div></div>
             <div class="sum-grid">
               <div class="sum-stat"><span id="period-label">Billing period</span><strong id="total">0 ₫</strong></div>
