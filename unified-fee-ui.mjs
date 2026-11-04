@@ -447,74 +447,91 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   for(const pay of payments.filter(x=>x.period_id===period.id))lines.push(pay.resident_name+": "+money(pay.amount));
   return lines.join("\n");
  }
+ function openPeriodDetail(period){
+  const detail=node("div","fee-history-details history-detail-body");
+  const charges=node("section","history-detail-section");
+  charges.append(node("h4",null,t("Charges")));
+  for(const item of period.items||[]){
+   const row=node("div","fee-history-charge");
+   row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+t(item.name)),
+    node("strong",null,money(item.original_amount??item.amount)));
+   charges.append(row);
+  }
+  detail.append(charges);
+  const paySection=node("section","history-detail-section");
+  paySection.append(node("h4",null,t("Payment status by resident")));
+  for(const pay of payments.filter(x=>x.period_id===period.id)){
+   const row=node("div","fee-history-payment"),info=node("div"),controls=node("div","fee-history-payment-actions");
+   info.append(node("strong",null,pay.resident_name),node("small",null,money(pay.amount)));
+   const byBill=node("details","fee-person-breakdown");
+   byBill.append(node("summary",null,t("View fee details")));
+   for(const item of period.items||[]){
+    const amount=(item.allocations||[]).find(a=>a.resident_id===pay.resident_id)?.share||0;
+    if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,t(item.name)),node("strong",null,money(amount)));byBill.append(line)}
+   }
+   info.append(byBill);
+   const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
+   controls.append(node("span","payment-badge "+pay.status,t(statuses[pay.status]||"Unpaid")));
+   const linked=residents.find(r=>r.id===pay.resident_id&&r.user_id===getContext().user?.id);
+   if(owner&&pay.status==="submitted"){
+    const button=node("button","mini",t("Confirm receipt"));button.type="button";
+    button.addEventListener("click",async()=>{
+     button.disabled=true;
+     const {data,error}=await db.rpc("confirm_apartment_fee_payment",{p_payment_id:pay.id});
+     if(error||data!==true){errorNotice("Could not confirm payment.",error);button.disabled=false;return}
+     pay.status="confirmed";renderHistory();openPeriodDetail(period);toast(t("Payment confirmed."));
+    });
+    controls.append(button);
+   }else if(!owner&&linked&&pay.status==="unpaid"){
+    const button=node("button","mini",t("I have paid"));button.type="button";
+    button.addEventListener("click",async()=>{
+     button.disabled=true;
+     const {data,error}=await db.rpc("report_apartment_fee_payment",{p_payment_id:pay.id});
+     if(error||data!==true){errorNotice("Could not report payment.",error);button.disabled=false;return}
+     pay.status="submitted";renderHistory();openPeriodDetail(period);toast(t("Payment reported to your apartment owner."));
+    });
+    controls.append(button);
+   }
+   row.append(info,controls);paySection.append(row);
+  }
+  detail.append(paySection);
+  openHistoryDetail((period.name===BILL_NAME?t("Monthly billing"):period.name)+" · "+period.bill_month,detail,t("Close"));
+ }
  function renderHistory(){
   onHistoryChanged?.(periods.length);
   const root=el("fee-history");root.replaceChildren();
-  if(!periods.length){root.append(node("p","muted",t("No saved bills yet.")));return}
+  if(!periods.length)return;
   for(const period of periods){
-   const article=node("article","fee-history-card");
-   const summary=node("div","fee-history-summary"),left=node("div");
-   left.append(node("strong",null,period.name===BILL_NAME?t("Monthly billing")+" · "+period.bill_month:period.name));
-   left.append(node("small",null,period.bill_month+" · "+(period.items?.length||0)+" "+t("fee items")));
-   summary.append(left,node("strong",null,money(period.total)));
-   const buttons=node("div","fee-history-actions"),toggle=node("button","mini",t(shown.has(period.id)?"Hide details":"Details"));toggle.type="button";
-   toggle.addEventListener("click",()=>{shown.has(period.id)?shown.delete(period.id):shown.add(period.id);renderHistory()});
-   const copyButton=node("button","mini",t("Copy bill"));copyButton.type="button";
-   copyButton.addEventListener("click",()=>writeClipboard(savedText(period)));
-   const shareButton=node("button","mini",t("Share bill"));shareButton.type="button";
-   shareButton.addEventListener("click",()=>shareText(savedText(period),period.name));
-   buttons.append(toggle,copyButton,shareButton);
+   const article=node("article","history-entry fee-history-card");
+   const left=node("div","history-entry-info");
+   left.append(node("strong",null,(period.name===BILL_NAME?t("Monthly billing"):period.name)+" · "+period.bill_month),
+    node("small",null,(period.items?.length||0)+" "+t("fee items")));
+   const amount=node("strong","history-entry-amount",money(period.total));
+   const actions=node("div","history-entry-actions");
+   const detailBtn=node("button","mini",t("Details"));detailBtn.type="button";
+   detailBtn.addEventListener("click",()=>openPeriodDetail(period));
+   const copyBtn=node("button","mini",t("Copy bill"));copyBtn.type="button";
+   copyBtn.addEventListener("click",()=>writeClipboard(savedText(period)));
+   actions.append(detailBtn,copyBtn);
+   const options=[{label:t("Share bill"),onClick:()=>shareText(savedText(period),period.name)}];
    if(owner){
-    const copyButton2=node("button","mini",t("Copy to editor"));copyButton2.type="button";
-    copyButton2.addEventListener("click",()=>{
-     month=nowMonth();groups=restorePeriod(period,true);editing=null;dirty=true;store();renderAll();
+    options.push({label:t("Copy to editor"),onClick:()=>{
+     month=nowMonth();groups=restorePeriod(period,true);cancelBill();dirty=true;store();renderAll();
      el("fee-editor").scrollIntoView({behavior:"smooth",block:"start"});
-    });
-    buttons.append(copyButton2);
-    const remove=node("button","mini red",t("Delete"));remove.type="button";
-    remove.addEventListener("click",async()=>{
+    }});
+    options.push({label:t("Delete"),destructive:true,onClick:async()=>{
      const yes=await confirmAction({title:t("Delete billing period?"),message:t("This deletes the saved period and payment statuses."),confirmText:t("Delete bill"),cancelText:t("Keep bill"),tone:"danger"});
      if(!yes)return;
      const {error}=await db.rpc("delete_apartment_fee_period",{p_period_id:period.id});
      if(error)return errorNotice("Could not delete the bill.",error);
-     periods=periods.filter(p=>p.id!==period.id);payments=payments.filter(p=>p.period_id!==period.id);shown.delete(period.id);renderHistory();
-    });
-    buttons.append(remove);
+     closeHistoryDetail();
+     periods=periods.filter(p=>p.id!==period.id);
+     payments=payments.filter(p=>p.period_id!==period.id);
+     renderHistory();
+    }});
    }
-   summary.append(buttons);article.append(summary);
-   if(shown.has(period.id)){
-    const detail=node("div","fee-history-details");
-    for(const item of period.items||[]){
-     const row=node("div","fee-history-charge");
-     row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+t(item.name)),node("strong",null,money(item.original_amount??item.amount)));
-     detail.append(row);
-    }
-    for(const pay of payments.filter(x=>x.period_id===period.id)){
-     const row=node("div","fee-history-payment"),info=node("div"),controls=node("div","fee-history-payment-actions");
-     info.append(node("strong",null,pay.resident_name),node("small",null,money(pay.amount)));
-     const byBill=node("details","fee-person-breakdown");
-     byBill.append(node("summary",null,t("View fee details")));
-     for(const item of period.items||[]){
-      const amount=(item.allocations||[]).find(a=>a.resident_id===pay.resident_id)?.share||0;
-      if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,t(item.name)),node("strong",null,money(amount)));byBill.append(line)}
-     }
-     info.append(byBill);
-     const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
-     controls.append(node("span","payment-badge "+pay.status,t(statuses[pay.status]||"Unpaid")));
-     const linked=residents.find(r=>r.id===pay.resident_id&&r.user_id===getContext().user?.id);
-     if(owner&&pay.status==="submitted"){
-      const button=node("button","mini",t("Confirm receipt"));button.type="button";
-      button.addEventListener("click",async()=>{button.disabled=true;const {data,error}=await db.rpc("confirm_apartment_fee_payment",{p_payment_id:pay.id});if(error||data!==true)errorNotice("Could not confirm payment.",error);else{pay.status="confirmed";renderHistory();toast(t("Payment confirmed."))}button.disabled=false});
-      controls.append(button);
-     }else if(!owner&&linked&&pay.status==="unpaid"){
-      const button=node("button","mini",t("I have paid"));button.type="button";
-      button.addEventListener("click",async()=>{button.disabled=true;const {data,error}=await db.rpc("report_apartment_fee_payment",{p_payment_id:pay.id});if(error||data!==true)errorNotice("Could not report payment.",error);else{pay.status="submitted";renderHistory();toast(t("Payment reported to your apartment owner."))}button.disabled=false});
-      controls.append(button);
-     }
-     row.append(info,controls);detail.append(row);
-    }
-    article.append(detail);
-   }
+   actions.append(historyMenu(options,t("More options")));
+   article.append(left,amount,actions);
    root.append(article);
   }
  }
