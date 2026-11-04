@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
 import { createFeeUI } from "./unified-fee-ui.mjs";
+import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
 import { installDashboardLayout } from "./dashboard-layout.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
@@ -774,71 +775,66 @@ async function loadApartment(id,options={}){
  return true;
 }
 
+function openLegacyDetail(bill){
+ const allocations=state.alloc[bill.id]||[];
+ const detail=el("div","bill-detail history-detail-body");
+ const subtitle=el("p","history-detail-subtitle",t("{count} residents · {days} days",{count:allocations.length,days:bill.billing_days}));
+ detail.append(subtitle);
+ for(const item of allocations){
+  const row=el("div","paid-row"),left=el("div"),right=el("div","payment-actions");
+  left.append(el("strong",null,item.resident_name+" · "+t("{count} days",{count:item.days})));
+  left.append(el("small","payment-amount",money(item.share)));
+  const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
+  right.append(el("span","payment-badge "+item.status,t(statuses[item.status]||"Unpaid")));
+  if(state.owner&&item.status==="submitted"){
+   const confirm=el("button","mini",t("Confirm receipt"));confirm.type="button";
+   confirm.addEventListener("click",async()=>{
+    confirm.disabled=true;
+    const {error}=await db.from("apartment_allocations").update({status:"confirmed"}).eq("id",item.id).eq("status","submitted");
+    if(error){errorNotice("Could not confirm payment.",error);confirm.disabled=false;return}
+    item.status="confirmed";renderHistory();openLegacyDetail(bill);toast("Payment confirmed.");
+   });
+   right.append(confirm);
+  }
+  const mine=state.residents.find(r=>r.id===item.resident_id&&r.user_id===state.user?.id);
+  if(!state.owner&&mine&&item.status==="unpaid"){
+   const report=el("button","mini",t("I have paid"));report.type="button";
+   report.addEventListener("click",async()=>{
+    report.disabled=true;
+    const {error}=await db.rpc("mark_apartment_payment_sent",{p_allocation_id:item.id});
+    if(error){errorNotice("Could not report payment.",error);report.disabled=false;return}
+    item.status="submitted";renderHistory();openLegacyDetail(bill);toast("Payment reported to your apartment owner.");
+   });
+   right.append(report);
+  }
+  row.append(left,right);detail.append(row);
+ }
+ openHistoryDetail(typeName(bill.bill_type)+" · "+bill.bill_month.slice(5)+"/"+bill.bill_month.slice(0,4),detail,t("Close"));
+}
 function renderHistory(){
  const root=$("#history");root.replaceChildren();
  dashboardLayout.syncHistory(state.feePeriodCount,state.bills.length);
- if(!state.bills.length){root.append(el("p","muted",t("No saved bills yet.")));return}
+ if(!state.bills.length)return;
  for(const bill of state.bills){
   const allocations=state.alloc[bill.id]||[];
-  const panel=el("article","bill"),line=el("div","bill-line"),desc=el("div","bill-desc");
+  const panel=el("article","history-entry bill");
+  const desc=el("div","history-entry-info");
   desc.append(el("strong",null,typeName(bill.bill_type)+" · "+bill.bill_month.slice(5)+"/"+bill.bill_month.slice(0,4)));
   desc.append(el("small",null,t("{count} residents · {days} days",{count:allocations.length,days:bill.billing_days})));
-  line.append(desc,el("strong","bill-money",money(bill.amount)));panel.append(line);
-  const actions=el("div","bill-actions");
-  const toggle=el("button","mini",t(state.shown.has(bill.id)?"Hide details":"Details"));
-  toggle.type="button";
-  toggle.addEventListener("click",()=>{state.shown.has(bill.id)?state.shown.delete(bill.id):state.shown.add(bill.id);renderHistory()});
-  actions.append(toggle);
-  const copySaved=el("button","mini bill-action-export",t("Copy bill"));
-  copySaved.type="button";copySaved.disabled=!allocations.length;
-  copySaved.addEventListener("click",()=>copySavedBill(bill));
-  const shareSaved=el("button","mini bill-action-export",t("Share bill"));
-  shareSaved.type="button";shareSaved.disabled=!allocations.length;
-  shareSaved.addEventListener("click",()=>shareSavedBill(bill));
-  actions.append(copySaved,shareSaved);
+  const amount=el("strong","history-entry-amount",money(bill.amount));
+  const actions=el("div","history-entry-actions");
+  const detailBtn=el("button","mini",t("Details"));detailBtn.type="button";
+  detailBtn.addEventListener("click",()=>openLegacyDetail(bill));
+  const copy=el("button","mini",t("Copy bill"));copy.type="button";copy.disabled=!allocations.length;
+  copy.addEventListener("click",()=>copySavedBill(bill));
+  actions.append(detailBtn,copy);
+  const opts=[{label:t("Share bill"),disabled:!allocations.length,onClick:()=>shareSavedBill(bill)}];
   if(state.owner){
-   const edit=el("button","mini",t("Edit"));
-   edit.addEventListener("click",()=>loadSavedBill(bill));
-   const del=el("button","mini red",t("Delete"));
-   del.addEventListener("click",()=>deleteBill(bill));actions.append(edit,del);
+   opts.push({label:t("Edit"),onClick:()=>{closeHistoryDetail();loadSavedBill(bill)}});
+   opts.push({label:t("Delete"),destructive:true,onClick:()=>deleteBill(bill)});
   }
-  panel.append(actions);
-  if(state.shown.has(bill.id)){
-   const detail=el("div","bill-detail");
-   for(const item of allocations){
-    const row=el("div","paid-row"),left=el("div"),right=el("div","payment-actions");
-    left.append(el("strong",null,item.resident_name+" · "+t("{count} days",{count:item.days})));
-    left.append(el("small","payment-amount",money(item.share)));
-    const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
-    right.append(el("span","payment-badge "+item.status,t(statuses[item.status]||"Unpaid")));
-    if(state.owner&&item.status==="submitted"){
-     const confirm=el("button","mini",t("Confirm receipt"));
-     confirm.addEventListener("click",async()=>{
-      confirm.disabled=true;
-      const {error}=await db.from("apartment_allocations").update({status:"confirmed"}).eq("id",item.id).eq("status","submitted");
-      if(error)errorNotice("Could not confirm payment.",error);
-      else{item.status="confirmed";renderHistory();toast("Payment confirmed.")}
-      confirm.disabled=false;
-     });
-     right.append(confirm);
-    }
-    const mine=state.residents.find(r=>r.id===item.resident_id&&r.user_id===state.user?.id);
-    if(!state.owner&&mine&&item.status==="unpaid"){
-     const report=el("button","mini",t("I have paid"));
-     report.addEventListener("click",async()=>{
-      report.disabled=true;
-      const {error}=await db.rpc("mark_apartment_payment_sent",{p_allocation_id:item.id});
-      if(error)errorNotice("Could not report payment.",error);
-      else{item.status="submitted";renderHistory();toast("Payment reported to your apartment owner.")}
-      report.disabled=false;
-     });
-     right.append(report);
-    }
-    row.append(left,right);detail.append(row);
-   }
-   panel.append(detail);
-  }
-  root.append(panel);
+  actions.append(historyMenu(opts,t("More options")));
+  panel.append(desc,amount,actions);root.append(panel);
  }
 }
 async function loadSavedBill(bill){
