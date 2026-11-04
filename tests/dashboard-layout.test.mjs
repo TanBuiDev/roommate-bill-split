@@ -6,7 +6,7 @@ class FakeElement {
  constructor(tag="div",className="",id=""){
   this.tagName=tag.toLowerCase();this.id=id;this.children=[];this.parentElement=null;
   this.classList={
-   names:new Set(className.split(/\s+/).filter(Boolean)),
+   names:new Set(String(className||"").split(/\s+/).filter(Boolean)),
    add:(x)=>this.classList.names.add(x),
    remove:(x)=>this.classList.names.delete(x),
    contains:(x)=>this.classList.names.has(x),
