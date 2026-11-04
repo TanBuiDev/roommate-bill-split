@@ -100,7 +100,7 @@ function renderResult(){
   if(share)share.textContent=money(map.get(resident.id)?.share||0);
   if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
  }
- label("#validation",validateBill());
+ label("#validation",t(validateBill()));
  $("#save").disabled=!!validateBill();
  $("#copy").disabled=!r.length||!!validateBill();
 }
@@ -555,6 +555,27 @@ function signOutView(){
  show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
  label("#sync-chip",t("Signed out"));$("#sync-chip").classList.remove("connected");
 }
+// Language changes update the current UI without reloading, switching apartment or changing form values.
+$("#lang-vi").addEventListener("click",()=>setLanguage("vi"));
+$("#lang-en").addEventListener("click",()=>setLanguage("en"));
+onLanguageChange(()=>{
+ const status=state.user?"Connected":"Signed out";
+ label("#sync-chip",t(status));
+ refreshLogin();
+ // All static content and select-option captions are translated by the i18n module.
+ if(!state.user)return;
+ if(!state.apt){renderGate();return}
+ label("#apartment-role",t(state.owner?"Owner":"Member"));
+ const selectedInvite=$("#invite-resident").value;
+ renderResidentTable();
+ if([...$("#invite-resident").options].some(opt=>opt.value===selectedInvite)){
+  $("#invite-resident").value=selectedInvite;
+ }
+ renderAccess();
+ renderHistory();
+ renderResult();
+});
+
 $("#login-form").addEventListener("submit",login);
 $("#signout").addEventListener("click",async()=>{
  const {error}=await db.auth.signOut();
