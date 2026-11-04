@@ -114,7 +114,7 @@ function renderResult(){
   if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
  }
  const issue=validateBill();
- label("#validation",t(issue));
+ label("#validation",issue==="Enter a valid bill amount."&&!state.draft.amount?"":t(issue));
  $("#save").disabled=state.billSaving||!!issue;
  const useCurrent=!issue&&r.length>0;
  const saved=useCurrent?null:getPreferredSavedBill();
@@ -125,7 +125,7 @@ function renderResult(){
  const shareLabel=$("#share").querySelector("span");
  if(shareLabel)shareLabel.textContent=t(saved?"Share saved bill":"Share result");
  const savedDesc=saved?typeName(saved.bill_type)+" · "+saved.bill_month.slice(5)+"/"+saved.bill_month.slice(0,4):"";
- label("#share-target-note",saved?t("Sharing saved bill: {bill}",{bill:savedDesc}):"");
+ label("#share-target-note",saved?t("Sharing saved bill: {bill}",{bill:savedDesc})+" · "+money(saved.amount):"");
  show("#share-target-note",!!saved);
 }
 function setDraft(){
@@ -856,6 +856,7 @@ async function saveBill(){
   if(error)throw error;
   saved=true;
   state.justSavedBillId=savedBillId||null;
+  if(savedBillId)state.shown.add(savedBillId);
   // Bill allocations are snapshots; reset only the current roster after saving.
   const reset=await db.from("apartment_residents")
    .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId);
@@ -906,12 +907,14 @@ function buildBreakdown(){
 }
 // Saved bill exports use the immutable allocations snapshot, never the reset editor.
 function getPreferredSavedBill(){
- const bill=state.bills.find(x=>x.id===state.justSavedBillId)||state.bills[0];
- return bill&&(state.alloc[bill.id]||[]).length?bill:null;
+ // Prefer the most recently saved bill; keep a valid fallback if that entry is absent.
+ return [state.bills.find(x=>x.id===state.justSavedBillId),...state.bills]
+   .filter(Boolean).find(bill=>(state.alloc[bill.id]||[]).length>0)||null;
 }
 function buildSavedBillBreakdown(bill){
+ if(!bill||!state.apt)return "";
  const allocations=state.alloc[bill.id]||[];
- if(!bill||!state.apt||!allocations.length)return "";
+ if(!allocations.length)return "";
  const header=[
   typeName(bill.bill_type)+" — "+bill.bill_month,
   t("Apartment")+": "+state.apt.name,
@@ -949,10 +952,9 @@ async function shareText(title,text){
    console.warn("Web share unavailable, using clipboard",err);
   }
  }
- try{
-  await navigator.clipboard.writeText(text);
-  toast("Share unavailable. Breakdown copied instead.");
- }catch(err){errorNotice("Sharing failed. Please try again.",err)}
+ // Reuse the mobile-friendly clipboard helper, which also supports in-app browsers
+ // without navigator.clipboard (selection + execCommand fallback).
+ await clipboard(text,"Share unavailable. Breakdown copied instead.");
 }
 async function shareBreakdown(){
  const payload=selectedSharePayload();
