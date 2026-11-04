@@ -114,16 +114,23 @@ export function calculateSelection(groups,residents,getDays){
 
 export function serializeSelection(groups,calculatedLines){
  const allocations=new Map(calculatedLines.map(line=>[line.id,line.allocations]));
+ const calculated=new Map(calculatedLines.map(line=>[line.id,line]));
  return groups.flatMap(group=>group.fees.map(fee=>{
+  const standardized=group.people&&!group.legacyIndependent;
+  const rule=getGroupMethod(group);
+  const source=standardized&&rule==="manual"?
+   calculated.get(fee.id)?.people||fee.people:
+   standardized&&rule==="days"?{}:
+   standardized?group.people:fee.people;
   const snapshot={
    id:fee.id,name:fee.name,method:fee.method,
    category_id:group.id,category_name:group.name,enabled:group.enabled!==false,
    amount:group.enabled===false?0:Number(fee.amount)||0,
    original_amount:Number(fee.amount)||0,
-   people:clone(fee.people),
+   people:clone(source),
    allocations:group.enabled===false?[]:(allocations.get(fee.id)||[])
   };
-  if(group.people&&!group.legacyIndependent)snapshot.group_people=clone(group.people);
+  if(standardized)snapshot.group_people=clone(group.people);
   if(fee.method==="days"){
    for(const p of Object.values(snapshot.people))delete p.included;
   }
