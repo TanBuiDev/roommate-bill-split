@@ -965,7 +965,7 @@ function buildBreakdown(){
   charges:[{name,fees:[{name,amount:Number(state.draft.amount)}]}],
   people:parts.map(p=>({id:p.id,name:p.name,days:p.days,amount:p.share})),
   total:Number(state.draft.amount)
- },{t,money});
+ },{t});
 }
 // Saved bill exports use the immutable allocations snapshot, never the reset editor.
 function getPreferredSavedBill(){
@@ -985,7 +985,7 @@ function buildSavedBillBreakdown(bill){
    id:p.resident_id,name:p.resident_name,amount:p.share,days:p.days
   })),
   total:Number(bill.amount)
- },{t,money});
+ },{t});
 }
 function selectedSharePayload(){
  if(state.owner&&!validateBill()&&split()){
