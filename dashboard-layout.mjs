@@ -112,6 +112,8 @@ export function installDashboardLayout({t}){
   appNav.classList.toggle("hidden",!hasApartment);
   const members=appNav.querySelector(".app-nav-members");
   if(members)members.classList.toggle("hidden",!isOwner);
+  const calculator=appNav.querySelector(".app-nav-billing");
+  if(calculator)calculator.classList.toggle("hidden",!isOwner);
  }
  function syncDaySummary(people,days){
   const chip=get("bill-days-count");
