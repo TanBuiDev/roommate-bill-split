@@ -18,7 +18,9 @@ Website miễn phí tính tiền điện, nước, Internet theo số ngày ở 
 - Supabase project: https://supabase.com/dashboard/project/loovjgylbookhouxjkaf
 - Supabase URL: https://loovjgylbookhouxjkaf.supabase.co
 - Cloudflare Pages project đã tạo: `roommate-bill-split` (hiện chưa có bản Pages triển khai thành công do Cloudflare Git installation báo lỗi).
-- Website chạy thử trên Cloudflare Workers: https://roommate-bill-split.devbui058.workers.dev/
+- Website chạy thử trên Cloudflare Workers: https://oghep.devbui058.workers.dev/
+
+Website Workers cũ vẫn được giữ hoạt động tại `https://roommate-bill-split.devbui058.workers.dev/`, nhưng ưu tiên URL ngắn phía trên.
 
 Chỉ có **publishable** Supabase key trong frontend, không sử dụng `service_role` hoặc secret key. RLS bắt buộc đăng nhập, bảo vệ dữ liệu khỏi tài khoản khác.
 
@@ -26,8 +28,8 @@ Chỉ có **publishable** Supabase key trong frontend, không sử dụng `servi
 
 Mở **Supabase Dashboard → Authentication → URL Configuration**.
 
-- **Site URL**: `https://roommate-bill-split.devbui058.workers.dev`
-- **Redirect URLs**, thêm: `https://roommate-bill-split.devbui058.workers.dev/**`
+- **Site URL**: `https://oghep.devbui058.workers.dev`
+- **Redirect URLs**, thêm: `https://oghep.devbui058.workers.dev/**`
 
 Khi Cloudflare Pages đã được triển khai, thêm tiếp domain `https://roommate-bill-split.pages.dev/**` vào Redirect URLs và có thể chuyển Site URL sang Pages.
 
