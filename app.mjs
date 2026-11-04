@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
+import { createFeeUI } from "./fee-ui.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
 const SITE="https://oghep.pages.dev";
@@ -24,6 +25,17 @@ const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invi
  shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),pendingWrites:0,
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false};
+const feeUI=createFeeUI({
+ db,getContext:()=>state,t,money,toast,errorNotice,confirmAction,nowMonth,
+ onSaved:async(apartmentId)=>{
+  // Preserve saved charge snapshots. Reset only the current resident preferences.
+  const {error}=await db.from("apartment_residents")
+   .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId);
+  if(error)errorNotice("Bill saved, but default weeks could not be restored.",error);
+  if(state.apt?.id===apartmentId)await loadApartment(apartmentId,{preserveDraft:true});
+ }
+});
+
 let toastTimer=0;
 function toast(message){
  const element=$("#toast");element.textContent=t(message);element.classList.add("show");
@@ -616,6 +628,7 @@ function renderGate(){
  label("#invitation-message",t("Accept this invitation after signing in with the invited email address."));
 }
 function showGate(){
+ feeUI.clear();
  state.apt=null;state.owner=false;
  show("#apartment-gate",true);show("#apartment-app",false);renderGate();
 }
@@ -705,6 +718,7 @@ async function loadApartment(id,options={}){
  for(const id of ["#bill-details-panel","#residents-panel","#summary-panel"])show(id,state.owner);
  if(state.owner&&(isNewApartment||options.resetDraft))blankDraft();
  renderResidentTable();renderHistory();
+ await feeUI.load(id,state.owner,state.residents);
  return true;
 }
 
@@ -893,6 +907,7 @@ async function login(e){
  }
 }
 function signOutView(){
+ feeUI.clear();
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
  state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
  state.authStatus="";label("#authmsg","");
@@ -916,6 +931,7 @@ onLanguageChange(()=>{
  if($("#bulk-member-dialog").open)renderBulkPreview();
  renderHistory();
  renderResult();
+ feeUI.retranslate();
 });
 
 $("#login-form").addEventListener("submit",login);
