@@ -133,6 +133,18 @@ Non-owner apartment members can view the consolidated saved history; owner-only 
 
 The layout has DOM smoke tests in `tests/dashboard-layout.test.mjs`, and its production code is syntax-tested by the existing GitHub Actions pipeline. All new application files are automatically included in the static Cloudflare Pages upload.
 
+## November 2026 UX consolidation (current workflow)
+
+The latest authenticated dashboard keeps the original black-and-white identity and the approved resident/week table, but applies one consistent soft-card, rounded-input, lightweight-shadow design system.
+
+- The top of the dashboard is **one apartment card**: dashboard heading and explanation, apartment name/code, owner/member role, live resident count, apartment switcher and compact copy/create actions.
+- Each monthly bill category uses **one sharing rule** for its complete group of subfees. `Default (days)` is the UI label for the unchanged internal `days` rule; it reads section A's configured days automatically, shows a short explanation and does **not** display the resident checkbox table. Previously stored hidden exclusions are ignored for the current Default calculation.
+- `equal`, `quantity`, and `manual` show **one resident list per bill**, not one list for every subfee. A manual amount is entered per resident for the **whole bill**. The pure group adapter apportions whole-bill resident targets back into individual saved fee rows, preserving exact VND sums.
+- Older stored bills with genuinely different subfee sharing rules show **Existing mixed rules** when reopened; the user can explicitly choose a single rule to unify them. Existing saved history is not rewritten behind the scenes.
+- The **Use last month's template** action appears beside the billing-month picker, before any bill data is entered; it copies fee structure but clears amounts. It asks before replacing an unfinished draft.
+- The bottom of the calculator has one primary **Save monthly settlement** action, followed by balanced **Copy bill as message** and **Share breakdown** secondary actions. Copy/share use identical charge and resident text. Unsaved results are clearly labelled as a draft.
+- The layout is responsive from small phones through tablets and desktop. Reduced-motion preferences are honored. The underlying Supabase schema, RPC contracts and historical payment statuses are unchanged.
+
 ## Unified monthly billing (new editor)
 
 - The visible bill editor is unified: one month, many bill categories, one selected-total and one resident breakdown. The old Simple/Multi tab switch is hidden. Older single bills and payment history remain readable; existing database rows are not migrated or deleted.
