@@ -189,9 +189,11 @@ function renderResidentTable(){
   });
   input.addEventListener("input",()=>{p.mode="custom";p.custom_days=Math.max(0,Math.min(billingPeriod().days,Math.trunc(Number(input.value))||0));changedResident(p);renderResult()});
   input.addEventListener("change",()=>{input.value=String(p.custom_days)});
-  td.append(input);row.append(td);
+  const customCaption=el("span","cell-caption",t("Custom days"));
+  td.append(customCaption,input);row.append(td);
   const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days",t("0 days"));
-  val.dataset.shareId=p.id;hint.dataset.daysId=p.id;hint.textContent=t("0 days");shareTd.append(val,hint);row.append(shareTd);
+  val.dataset.shareId=p.id;hint.dataset.daysId=p.id;hint.textContent=t("0 days");
+  shareTd.append(el("span","cell-caption",t("Amount due")),val,hint);row.append(shareTd);
   const delTd=el("td");
   if(state.owner){
    const del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label",t("Remove {name}",{name:p.name}));
@@ -866,8 +868,32 @@ async function saveBill(){
  }catch(err){errorNotice(saved?"Unable to refresh. Check your connection.":"Could not save bill.",err)}
  finally{state.billSaving=false;renderResult()}
 }
+// Use the standard Clipboard API first, then a selected-text fallback for in-app mobile browsers.
 async function clipboard(data,message){
- try{await navigator.clipboard.writeText(data);toast(message||"Copied.")}catch{toast("Your browser cannot copy to clipboard.")}
+ if(!data)return;
+ try{
+  if(!navigator.clipboard?.writeText)throw new Error("Clipboard API unavailable");
+  await navigator.clipboard.writeText(data);
+  toast(message||"Copied.");
+  return;
+ }catch(primaryError){
+  const input=document.createElement("textarea");
+  const selection=document.getSelection?.();
+  const previousRange=selection?.rangeCount?selection.getRangeAt(0):null;
+  const focused=document.activeElement;
+  input.value=data;
+  input.setAttribute("readonly","");
+  input.style.position="fixed";input.style.left="-9999px";
+  document.body.append(input);
+  input.focus();input.select();
+  let success=false;
+  try{success=!!document.execCommand?.("copy")}catch{}
+  input.remove();
+  if(previousRange&&selection){selection.removeAllRanges();selection.addRange(previousRange)}
+  if(focused?.isConnected)focused.focus({preventScroll:true});
+  if(success)toast(message||"Copied.");
+  else errorNotice("Your browser cannot copy to clipboard.",primaryError);
+ }
 }
 function buildBreakdown(){
  const parts=split();
