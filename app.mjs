@@ -3,6 +3,7 @@ import { confirmAction } from "./ui-modal.mjs";
 import { createFeeUI } from "./unified-fee-ui.mjs";
 import { getEmailCaptchaToken } from "./turnstile-auth.mjs";
 import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
+import { formatBillMessage } from "./bill-message.mjs";
 import { installDashboardLayout } from "./dashboard-layout.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
@@ -957,11 +958,14 @@ async function clipboard(data,message){
 function buildBreakdown(){
  const parts=split();
  if(!parts||!state.apt)return "";
- return [typeName(state.draft.type)+" — "+state.draft.month,
-  t("Apartment")+": "+state.apt.name,t("Total")+": "+money(state.draft.amount),
-  t("Period")+": "+t("{count} days",{count:billingPeriod().days}),"",
-  ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+t("{count} days",{count:p.days})+": "+money(p.share)),
-  "",t("TOTAL")+": "+money(parts.reduce((s,p)=>s+p.share,0))].join("\n");
+ const name=typeName(state.draft.type);
+ return formatBillMessage({
+  month:state.draft.month,apartment:state.apt.name,
+  draft:true,
+  charges:[{name,fees:[{name,amount:Number(state.draft.amount)}]}],
+  people:parts.map(p=>({id:p.id,name:p.name,days:p.days,amount:p.share})),
+  total:Number(state.draft.amount)
+ },{t,money});
 }
 // Saved bill exports use the immutable allocations snapshot, never the reset editor.
 function getPreferredSavedBill(){
@@ -973,15 +977,15 @@ function buildSavedBillBreakdown(bill){
  if(!bill||!state.apt)return "";
  const allocations=state.alloc[bill.id]||[];
  if(!allocations.length)return "";
- const header=[
-  typeName(bill.bill_type)+" — "+bill.bill_month,
-  t("Apartment")+": "+state.apt.name,
-  t("Total")+": "+money(bill.amount),
-  t("Period")+": "+t("{count} days",{count:bill.billing_days}),""
- ];
- const residents=allocations.map((p,i)=>(i+1)+". "+p.resident_name+" · "+
-   t("{count} days",{count:p.days})+": "+money(p.share));
- return [...header,...residents,"",t("TOTAL")+": "+money(bill.amount)].join("\n");
+ const name=typeName(bill.bill_type);
+ return formatBillMessage({
+  month:bill.bill_month,apartment:state.apt.name,
+  charges:[{name,fees:[{name,amount:Number(bill.amount)}]}],
+  people:allocations.map(p=>({
+   id:p.resident_id,name:p.resident_name,amount:p.share,days:p.days
+  })),
+  total:Number(bill.amount)
+ },{t,money});
 }
 function selectedSharePayload(){
  if(state.owner&&!validateBill()&&split()){
