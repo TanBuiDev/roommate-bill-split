@@ -88,6 +88,7 @@ export const vi = {
   "Water": "Tiền nước",
   "Internet": "Internet",
   "Other expenses": "Chi phí khác",
+  "Other": "Chi phí khác",
   "Billing month": "Tháng hóa đơn",
   "Total amount (VND)": "Tổng tiền (VNĐ)",
   "Enter amount": "Nhập số tiền",
