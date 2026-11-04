@@ -1,5 +1,11 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
+  "BILL FOR MONTH {month}": "HÓA ĐƠN THÁNG {month}",
+  "BILL DETAILS": "CHI TIẾT HÓA ĐƠN",
+  "PER-RESIDENT AMOUNTS": "TIỀN TỪNG THÀNH VIÊN",
+  "GRAND TOTAL": "TỔNG CỘNG",
+  "DRAFT — NOT SAVED": "BẢN NHÁP — CHƯA LƯU",
+  "Residency days are unavailable for this older saved period.": "Kỳ thanh toán cũ không lưu số ngày ở của từng người.",
   "Enter days": "Nhập ngày",
   "Allocated amounts do not match the bill total. Please check the sharing rule.": "Tổng tiền phân bổ không khớp tổng hóa đơn. Vui lòng kiểm tra quy tắc chia.",
   "Replacing a saved billing period resets its payment statuses.": "Ghi đè kỳ thanh toán đã lưu sẽ đặt lại trạng thái thanh toán.",
