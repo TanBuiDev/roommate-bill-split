@@ -17,7 +17,7 @@ Website miễn phí tính tiền điện, nước, Internet theo số ngày ở 
 - GitHub: https://github.com/TanBuiDev/roommate-bill-split
 - Supabase project: https://supabase.com/dashboard/project/loovjgylbookhouxjkaf
 - Supabase URL: https://loovjgylbookhouxjkaf.supabase.co
-- Cloudflare Pages project **`oghep`** đã tạo với hostname **`oghep.pages.dev`** (chưa được deploy vì Cloudflare Git installation báo lỗi; hostname hiện chưa phục vụ web). Project Pages `roommate-bill-split` trước đó vẫn còn, chưa triển khai.
+- Cloudflare Pages production: **https://oghep.pages.dev/** (đã triển khai thành công bằng Wrangler ngày 04/11/2026). Project Pages `roommate-bill-split` trước đó vẫn còn, chưa triển khai.
 - Website chạy thử trên Cloudflare Workers: https://oghep.devbui058.workers.dev/
 
 Website Workers cũ vẫn được giữ hoạt động tại `https://roommate-bill-split.devbui058.workers.dev/`, nhưng ưu tiên URL ngắn phía trên.
@@ -31,7 +31,7 @@ Mở **Supabase Dashboard → Authentication → URL Configuration**.
 - **Site URL**: `https://oghep.devbui058.workers.dev`
 - **Redirect URLs**, thêm: `https://oghep.devbui058.workers.dev/**`
 
-Khi Cloudflare Pages `oghep` đã được triển khai, thêm `https://oghep.pages.dev/**` vào Redirect URLs và có thể chuyển Site URL sang `https://oghep.pages.dev`.
+**Đã triển khai Cloudflare Pages `oghep`:** thêm `https://oghep.pages.dev/**` vào Redirect URLs và chuyển Site URL sang `https://oghep.pages.dev`.
 
 Đảm bảo **Email provider** được bật. Mặc định Supabase gửi Magic Link, miễn phí nhưng có giới hạn số email; nếu chạm giới hạn, đợi hoặc cấu hình SMTP riêng.
 
@@ -52,7 +52,7 @@ Chia theo số ngày là **quy ước phân bổ**, không đo lượng điện 
 
 ## Pages URL ngắn
 
-`bill.pages.dev` không khả dụng; Cloudflare tự tạo hậu tố khi thử tạo project `bill`. Project trùng tên đã được xóa. `oghep.pages.dev` được cấp chính xác nhưng **chưa có nội dung triển khai**. Để triển khai thủ công từ thư mục đã clone repo:
+`bill.pages.dev` không khả dụng; Cloudflare tự tạo hậu tố khi thử tạo project `bill`. Project trùng tên đã được xóa. `oghep.pages.dev` đã được cấp và **đã xuất bản thành công** từ thư mục đã clone repo bằng Wrangler. Những lần cập nhật sau chạy:
 
 ```bash
 npx wrangler login
@@ -60,3 +60,7 @@ npx wrangler pages deploy . --project-name oghep --branch main
 ```
 
 Hoặc vào Cloudflare Pages project `oghep` và tải một thư mục chứa `index.html` lên qua **Create a new deployment** (Direct Upload). Cách này không tự động triển khai khi push GitHub. Lưu ý về giới hạn chuyển từ Direct Upload sang Git integration; muốn CI tự động cần quy trình GitHub Actions + Wrangler hoặc tạo project Git-connected khác sau khi sửa lỗi app Cloudflare.
+
+### Trạng thái hiện tại
+
+Cloudflare Pages production: `https://oghep.pages.dev/` · deployment ngày 2026-11-04, status `success`. Git Provider: `No`, nên push GitHub **chưa tự triển khai**; cần lệnh `npx wrangler pages deploy . --project-name oghep --branch main` trong thư mục repo sau khi cập nhật. Supabase Auth phải cho phép redirect `https://oghep.pages.dev/**`.
