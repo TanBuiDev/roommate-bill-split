@@ -13,7 +13,7 @@ const BUILTINS = [
   {id:"living",name:"Shared living costs",fees:[["Groceries","equal"],["Shared supplies","equal"],["Cleaning","equal"]]}
 ];
 const BILL_NAME="Monthly summary";
-const METHODS_LABEL={days:"Default (days)",equal:"Split equally",quantity:"By quantity",manual:"Manual amounts"};
+const METHODS_LABEL={days:"Default",equal:"Split equally",quantity:"By quantity",manual:"Manual amounts"};
 const maxAmount=1000000000000;
 const node=(tag,cls,value)=>{
   const element=document.createElement(tag);
