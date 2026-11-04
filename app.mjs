@@ -403,7 +403,10 @@ function renderHouseholdList(){
   addSelf.addEventListener("click",()=>openMemberDialog("self"));
   ownerActions.append(addSelf);
  }else{
-  ownerActions.append(el("span","household-owner-included",t("Included in bills")));
+  const removeMe=el("button","mini",t("Exclude me from bills"));
+  removeMe.type="button";
+  removeMe.addEventListener("click",removeOwnerBilling);
+  ownerActions.append(removeMe);
  }
  ownerRow.append(ownerAvatar,ownerInfo,ownerBadge,ownerActions);
  root.append(ownerRow);
@@ -450,6 +453,21 @@ function renderHouseholdList(){
   root.append(row);
  });
 }
+async function removeOwnerBilling(){
+ if(!state.owner||!state.apt)return;
+ const accepted=await confirmAction({
+  title:"Stop including yourself in bills?",
+  message:"Your apartment owner access will remain active. Saved bills keep their previous amounts.",
+  confirmText:"Exclude me",
+  cancelText:"Keep me included"
+ });
+ if(!accepted)return;
+ const {error}=await db.rpc("remove_owner_from_billing",{p_apartment_id:state.apt.id});
+ if(error){errorNotice("Could not update your billing participation.",error);return}
+ await loadApartment(state.apt.id);
+ toast("You're no longer included in new bills.");
+}
+
 async function removeMemberAccess(userId){
  const confirmed=await confirmAction({
   title:"Remove member access?",
