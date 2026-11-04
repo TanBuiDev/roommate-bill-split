@@ -1,66 +1,87 @@
-# Ở Ghép — Chia tiền hóa đơn
+# Ở Ghép — split bills, not friendships
 
-Website miễn phí tính tiền điện, nước, Internet theo số ngày ở của mỗi người. Mã nguồn nằm trong một file `index.html`; không cần Node.js, backend hay trả phí hosting.
+An English-language, responsive roommate expense-splitting web app with a bold, monochrome "Uber Bold Transit" landing design. No images, emojis, frontend framework, paid hosting, or Node build step required.
 
-## Chức năng
+## Live URLs
 
-- Chọn hóa đơn, nhập số tiền, chọn tháng và số ngày của kỳ.
-- Thêm/xóa người ở, chỉnh sửa tên; chọn **1, 2, 3, 4 tuần**, **Cả kỳ** hoặc **Tùy chọn ngày**.
-- Chia theo số ngày và phân bổ số đồng lẻ để tổng luôn khớp hóa đơn.
-- Sao chép kết quả gửi nhóm.
-- **Supabase Auth**: đăng nhập bằng magic link gửi tới email.
-- **Supabase Database**: tên người ở được tự lưu, hóa đơn được lưu theo tháng; đánh dấu từng người đã trả tiền.
-- Dữ liệu được bảo vệ bởi PostgreSQL Row Level Security; mỗi tài khoản chỉ thấy dữ liệu của mình.
+- Primary site: **https://oghep.pages.dev/**
+- Production source: `main` in [TanBuiDev/roommate-bill-split](https://github.com/TanBuiDev/roommate-bill-split)
+- Design preview: `https://design-alpha.oghep.pages.dev/` (as available)
+- Older Workers preview: `https://oghep.devbui058.workers.dev/`
 
-## Tài khoản dịch vụ
+**Deploy model:** Pages is a Direct Upload project, not automatically Git-connected. Changes on GitHub do not automatically update the site unless uploaded with Wrangler or the Pages deployment API. The design preview is a separate deployment.
 
-- GitHub: https://github.com/TanBuiDev/roommate-bill-split
-- Supabase project: https://supabase.com/dashboard/project/loovjgylbookhouxjkaf
-- Supabase URL: https://loovjgylbookhouxjkaf.supabase.co
-- Cloudflare Pages production: **https://oghep.pages.dev/** (đã triển khai thành công bằng Wrangler ngày 04/11/2026). Project Pages `roommate-bill-split` trước đó vẫn còn, chưa triển khai.
-- Website chạy thử trên Cloudflare Workers: https://oghep.devbui058.workers.dev/
+## Source structure
 
-Website Workers cũ vẫn được giữ hoạt động tại `https://roommate-bill-split.devbui058.workers.dev/`, nhưng ưu tiên URL ngắn phía trên.
+```text
+index.html    accessible landing page, SEO / Open Graph metadata, app markup and inline SVG
+styles.css    single CSS source: tokens, layout, components, breakpoints and reduced motion
+app.mjs       browser-side logic: auth, roommate table, calculation, history, persistence
+.gitignore    excludes .wrangler/ and local build artifacts
+README.md     documentation
+```
 
-Chỉ có **publishable** Supabase key trong frontend, không sử dụng `service_role` hoặc secret key. RLS bắt buộc đăng nhập, bảo vệ dữ liệu khỏi tài khoản khác.
+Do not reintroduce layered inline style blocks. Keep browser/server integrations and data handling in `app.mjs`. Keep new style rules in `styles.css`.
 
-## Thiết lập Supabase Auth (bắt buộc để email đăng nhập hoạt động)
+## Existing features
 
-Mở **Supabase Dashboard → Authentication → URL Configuration**.
+- Email magic-link signup and login.
+- Select electricity, water, internet or other; choose month and billing period.
+- Enter total VND amount with empty default placeholder.
+- Default residents added once (without removing prior saved residents): Tấn, Tiến, Thành, Huy, Nhựt, Kiệt, Hậu.
+- Pick 1–4 weeks or custom number of days for each roommate.
+- Proportional division with integer remainder distribution; total of per-person shares equals the bill.
+- Add/edit/delete roommates and save duration choices.
+- Save, restore and delete monthly bills; mark individual payment status; copy a share summary.
+- Mobile layout turns each resident's 8-column row into a responsive grid card without page-wide horizontal scrolling.
 
-- **Site URL**: `https://oghep.devbui058.workers.dev`
-- **Redirect URLs**, thêm: `https://oghep.devbui058.workers.dev/**`
+The public landing includes three feature cards, three clearly **illustrative scenarios (not actual reviews)**, three **free usage modes (not different paid plans)**, a final call-to-action, privacy/terms information and real GitHub links.
 
-**Đã triển khai Cloudflare Pages `oghep`:** thêm `https://oghep.pages.dev/**` vào Redirect URLs và chuyển Site URL sang `https://oghep.pages.dev`.
+## Accounts / backend
 
-Đảm bảo **Email provider** được bật. Mặc định Supabase gửi Magic Link, miễn phí nhưng có giới hạn số email; nếu chạm giới hạn, đợi hoặc cấu hình SMTP riêng.
+Backend: existing Supabase project `loovjgylbookhouxjkaf` with existing, RLS-protected tables:
 
-## Cloudflare Pages
+- `room_members` (owner, name, sort order, selected week/custom duration)
+- `room_preferences` (seeded residents marker)
+- `bill_history` (owner, bill type, month, amount, duration snapshot, payment statuses)
 
-Lúc tích hợp tự động, Cloudflare API trả lỗi `There is an internal issue with your Cloudflare Pages Git installation` (HTTP 401). Cần kiểm tra https://github.com/settings/installations → **Cloudflare Workers and Pages** → Configure → Repository access → cấp quyền truy cập `roommate-bill-split`. Nếu Cloudflare vẫn báo lỗi, theo https://developers.cloudflare.com/pages/configuration/git-integration/troubleshooting/ thử cài đặt lại GitHub app; việc gỡ app có thể ảnh hưởng các dự án khác đang dùng auto-deploy.
+Client code only contains a public publishable key. **Never commit service-role, SMTP, Resend or Cloudflare API secrets.** Data and authentication are not part of the visual redesign.
 
-Với Pages, cấu hình: **Framework preset** `None`, **Build command** `exit 0`, **Output directory** `.`, **Production branch** `main`. Có thể dùng Direct Upload nếu Git integration chưa sửa được, nhưng không có tự động triển khai khi push GitHub.
+SMTP sends signup confirmation and email login messages via the provider already configured in the project's Auth settings. Hosted email templates are managed separately in Supabase; the web redesign does not update them.
 
-## Dữ liệu
+## Local development
 
-- `public.room_members`: `id`, `user_id`, `name`, `sort_order`
-- `public.bill_history`: `id`, `user_id`, `bill_type`, `bill_month`, `amount`, `billing_days`, `people` (JSON chứa các khoản chia và trạng thái đã trả).
+The browser imports an ES module, so run a local server rather than opening `index.html` with `file://`.
 
-Hai bảng có RLS và 4 policies CRUD riêng cho từng user. Mỗi kỳ hóa đơn được khóa theo `(user_id, bill_type, bill_month)`.
+```sh
+python -m http.server 8080
+```
 
-Chia theo số ngày là **quy ước phân bổ**, không đo lượng điện thực tế. Website không kết nối EVN, không chuyển khoản hay thanh toán thực tế.
+Open http://localhost:8080/. A recent browser with JavaScript and an internet connection is needed for the auth module. Configure the local development URL in Auth Redirect URLs if you need to test login locally.
 
-## Pages URL ngắn
+## Deployment
 
-`bill.pages.dev` không khả dụng; Cloudflare tự tạo hậu tố khi thử tạo project `bill`. Project trùng tên đã được xóa. `oghep.pages.dev` đã được cấp và **đã xuất bản thành công** từ thư mục đã clone repo bằng Wrangler. Những lần cập nhật sau chạy:
+Log in to the Cloudflare account owning `oghep`. From the repository root:
 
-```bash
-npx wrangler login
+```sh
+git pull --ff-only
+export CLOUDFLARE_ACCOUNT_ID=37f44fbbb3a0e19e54a87ffa70802fb2
 npx wrangler pages deploy . --project-name oghep --branch main
 ```
 
-Hoặc vào Cloudflare Pages project `oghep` và tải một thư mục chứa `index.html` lên qua **Create a new deployment** (Direct Upload). Cách này không tự động triển khai khi push GitHub. Lưu ý về giới hạn chuyển từ Direct Upload sang Git integration; muốn CI tự động cần quy trình GitHub Actions + Wrangler hoặc tạo project Git-connected khác sau khi sửa lỗi app Cloudflare.
+Windows **CMD** uses `set "CLOUDFLARE_ACCOUNT_ID=..."`, whereas **Git Bash** uses `export`.
 
-### Trạng thái hiện tại
+Verify the returned deployment URL, then visit https://oghep.pages.dev/. The `.wrangler/` directory is ignored in Git.
 
-Cloudflare Pages production: `https://oghep.pages.dev/` · deployment ngày 2026-11-04, status `success`. Git Provider: `No`, nên push GitHub **chưa tự triển khai**; cần lệnh `npx wrangler pages deploy . --project-name oghep --branch main` trong thư mục repo sau khi cập nhật. Supabase Auth phải cho phép redirect `https://oghep.pages.dev/**`.
+## Regression checklist
+
+1. Authentication sign-in, redirect to the correct domain, persistence across refresh and sign-out.
+2. Seven default residents seeded once; prior saved residents and bill history preserved.
+3. Edit/add/remove residents; pick 1–4 weeks and custom days; page refresh retains week/custom choices.
+4. Enter a VND amount; verify per-person shares add up **exactly** to the bill, including odd amounts and 0-day residents.
+5. Save a new bill, overwrite a previous bill, restore, delete, and mark shares as paid.
+6. Copy results from a supported browser.
+7. Responsive and keyboard operation at 320px, 375px, 768px, 1024px and desktop widths; no page-wide horizontal scroll.
+8. No emoji icons, leaked infrastructure branding, fabricated quotes, or ungrounded subscription offers in the visible page.
+
+The calculation is a shared **convention**, not direct measurement of utilities; the app does not accept real payments. 
