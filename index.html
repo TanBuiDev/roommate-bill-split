@@ -109,14 +109,52 @@
           <p class="data-note">Your household data is private to your account. The sign-in link may take a moment to arrive.</p>
         </section>
         <div id="workspace" class="workflow hidden">
+          <section class="panel" id="apartment-gate" aria-labelledby="apartment-gate-title">
+            <div class="panel-header"><span class="step-number">01</span><div><h3 id="apartment-gate-title">Your apartment</h3><p>Create your household or accept an email invitation.</p></div></div>
+            <p class="muted">An apartment code identifies a home. Only invited accounts can join and access bills.</p>
+            <div class="invite-banner hidden" id="invitation-banner" role="status">
+              <strong>You're invited to an apartment.</strong>
+              <p id="invitation-message">Sign in using the invited email address to continue.</p>
+              <button class="button primary" id="accept-invite" type="button">Accept invitation</button>
+            </div>
+            <div id="apartment-list" class="apartment-list"></div>
+            <form id="create-apartment-form" class="create-apartment-form">
+              <label class="field" for="new-apartment-name"><span>Apartment name</span><input class="control" id="new-apartment-name" type="text" maxlength="80" minlength="2" required placeholder="e.g. Room 01"></label>
+              <label class="checkline hidden" id="legacy-import-line"><input type="checkbox" id="import-legacy" checked><span>Import previous residents and keep their latest day selections (duplicates merged).</span></label>
+              <button class="button primary" type="submit" id="create-apartment-button">Create apartment</button>
+            </form>
+          </section>
+          <div id="apartment-app" class="hidden">
+            <section class="panel apartment-toolbar" aria-label="Apartment details">
+              <div class="apartment-current"><span class="section-kicker">CURRENT APARTMENT</span><h3 id="apartment-name">Apartment</h3><div class="meta-row"><span class="tag" id="apartment-code">OG-XXXXXXXXXX</span><span class="tag" id="apartment-role">Member</span><button id="copy-code" class="mini" type="button">Copy code</button></div></div>
+              <div class="apartment-switcher"><label for="apartment-select">Switch apartment</label><select id="apartment-select" class="control"></select><button id="manage-apartments" class="mini" type="button">Create another</button></div>
+            </section>
+            <section class="panel" id="owner-panel" aria-labelledby="household-title">
+              <div class="panel-header"><span class="step-number">01</span><div><h3 id="household-title">Household &amp; invitations</h3><p>Manage residents and invite them by email.</p></div></div>
+              <div class="owner-grid">
+                <div><h4 class="minor-title">Add a resident</h4>
+                  <form id="add-resident-form" class="inline-form"><input id="new-resident-name" class="control" type="text" maxlength="70" required placeholder="Resident name"><button class="button primary" type="submit">Add resident</button></form>
+                  <p class="data-note">Residents can be added before they register. Invite an existing name to link their account.</p>
+                </div>
+                <div><h4 class="minor-title">Send invitation by email</h4>
+                  <form id="invite-form" class="invite-form"><input class="control" id="invite-email" type="email" required placeholder="Email address" autocomplete="off"><select id="invite-resident" class="control" required><option value="">Choose a resident</option></select><button id="send-invite" class="button primary" type="submit">Send invitation</button></form>
+                  <p class="data-note">A verified email sign-in link will grant access. Private invitations expire in 7 days.</p>
+                  <div id="invite-fallback" class="invite-fallback hidden"><p>Invitation created, but email could not be sent. Copy the private link and send it yourself.</p><button class="mini" id="copy-invite-link" type="button">Copy invitation link</button></div>
+                </div>
+              </div>
+              <h4 class="minor-title">Members with access</h4><div id="member-access" class="access-list"></div>
+              <h4 class="minor-title">Pending invitations</h4><div id="pending-invitations" class="access-list"></div>
+            </section>
+
           <section class="panel" aria-labelledby="bill-title">
             <div class="panel-header"><span class="step-number">01</span><div><h3 id="bill-title">Bill details</h3><p>Select a bill type, billing month and total amount</p></div></div>
             <div class="bill-grid">
               <label class="field"><span>Bill type</span><select class="control" id="bill-type"><option value="electric">Electricity</option><option value="water">Water</option><option value="internet">Internet</option><option value="other">Other expenses</option></select></label>
               <label class="field"><span>Billing month</span><input class="control" type="month" id="bill-month"></label>
-              <label class="field amount-field"><span>Total amount (VND)</span><span class="moneybox"><input type="number" id="bill-amount" min="0" step="1" inputmode="numeric" placeholder="Enter amount" aria-label="Total bill amount"><strong>₫</strong></span></label>
+              <label class="field amount-field"><span>Total amount (VND)</span><span class="moneybox"><input type="text" id="bill-amount" inputmode="numeric" autocomplete="off" maxlength="21" placeholder="Enter amount" aria-label="Total bill amount"><strong>₫</strong></span></label>
             </div>
-            <div class="billing-period"><label for="billing-days">Days in billing period</label><input id="billing-days" class="control" type="number" min="1" max="366" value="30" inputmode="numeric"><span>days (limits each resident's count)</span></div>
+            <div class="billing-period"><strong id="period-days-note">30 calendar days</strong><span>Calculated from the selected month</span></div>
+            <details class="advanced-period" id="advanced-period"><summary>Use exact meter-reading dates (optional)</summary><div class="range-fields"><label class="field"><span>From</span><input class="control" id="period-start" type="date"></label><label class="field"><span>To (inclusive)</span><input class="control" id="period-end" type="date"></label></div><p class="data-note">Leave both dates empty to use the full calendar month.</p></details>
           </section>
           <section class="panel" aria-labelledby="members-title">
             <div class="panel-header"><span class="step-number">02</span><div><h3 id="members-title">Residents &amp; days</h3><p>Pick a weekly shortcut or enter the exact number of days</p></div></div>
@@ -133,7 +171,7 @@
                 <tbody id="members"></tbody>
               </table>
             </div>
-            <button id="add-member" class="add" type="button">+ Add resident</button>
+            
           </section>
           <section class="panel" aria-labelledby="summary-title">
             <div class="panel-header"><span class="step-number">03</span><div><h3 id="summary-title">Review &amp; save</h3><p>Every allocated amount adds up to the original bill</p></div></div>
@@ -149,6 +187,7 @@
             <div class="history" id="history"><p class="muted">No saved bills yet.</p></div>
             <p class="data-note">Figures are allocated by days of occupancy, not measured usage. No money is collected through this website.</p>
           </section>
+          </div>
         </div>
       </div>
     </section>
@@ -194,7 +233,7 @@
       <div class="footer-top">
         <div><a href="#top" class="brand"><span class="brand-mark" aria-hidden="true">OG</span><span>Ở Ghép</span></a><p class="footer-description">A practical way to keep shared costs clear. Built for real roommates, not complicated spreadsheets.</p></div>
         <div class="footer-list"><h3>Explore</h3><a href="#features">How it works</a><a href="#dashboard">Your workspace</a><a href="#stories">Example scenarios</a><a href="#pricing">Free access</a></div>
-        <div class="footer-list"><h3>Information</h3><a href="#privacy">Privacy</a><a href="#terms">Terms of use</a><a href="https://github.com/TanBuiDev/roommate-bill-split/issues" target="_blank" rel="noopener noreferrer">Contact &amp; feedback</a><a href="https://github.com/TanBuiDev/roommate-bill-split" target="_blank" rel="noopener noreferrer">Source code</a></div>
+        <div class="footer-list"><h3>Information</h3><a href="#privacy">Privacy</a><a href="#terms">Terms of use</a></div>
       </div>
       <div class="legal-notes">
         <details id="privacy"><summary>Privacy overview</summary><p>Your email sign-in and account data are handled by an external authentication and database service. Resident names and saved bills are stored under your account. The browser may retain limited session and form preferences. Avoid entering unrelated sensitive information.</p></details>
@@ -202,12 +241,7 @@
       </div>
       <div class="footer-bottom">
         <span>© 2026 Ở Ghép. All rights reserved.</span>
-        <div class="socials">
-          <a href="https://github.com/TanBuiDev/roommate-bill-split" target="_blank" rel="noopener noreferrer" aria-label="View Ở Ghép on GitHub">
-            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-4 1.5-4-2-6-2m12 4v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 19 3.77 5.07 5.07 0 0 0 18.91 0S17.73-.35 15 1.55a13.38 13.38 0 0 0-7 0C5.27-.35 4.09 0 4.09 0A5.07 5.07 0 0 0 4 3.77 5.44 5.44 0 0 0 2.5 7.52c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 8 17.13V21"/></svg>
-            GitHub
-          </a>
-        </div>
+
       </div>
     </div>
   </footer>
