@@ -217,7 +217,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   return t("{count} charges",{count:g.fees.length})+" · "+money(value);
  };
  function refreshTypeActions(){
-  const isCustom=selectedType.startsWith("custom:");
+  const isCustom=templates.some(x=>"custom:"+x.id===selectedType);
   setVisible("ub-edit-type",isCustom&&owner);
   setVisible("ub-delete-type",isCustom&&owner);
   el("ub-add-label").textContent=t("Add bill");
@@ -225,9 +225,16 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  function renderCatalog(){
   const select=el("ub-type");const prior=selectedType;
   select.replaceChildren();
-  for(const type of catalog()){
+  const known=catalog();
+  for(const type of known){
    const option=node("option",null,type.id.startsWith("custom:")?type.name:t(type.name));
    option.value=type.id;select.append(option);
+  }
+  // Preserve access to saved historical categories if their template was deleted.
+  const orphan=groups.find(g=>g.id===prior);
+  if(orphan&&!known.some(x=>x.id===orphan.id)){
+   const option=node("option",null,displayGroupName(orphan));
+   option.value=orphan.id;select.append(option);
   }
   if([...select.options].some(x=>x.value===prior))select.value=prior;
   else selectedType=select.options[0]?.value||"electric";
@@ -235,9 +242,9 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  function openSelectedType(){
   if(!owner||!active())return;
-  const type=catalog().find(x=>x.id===selectedType);
-  if(!type)return;
   const existingGroup=groups.find(g=>g.id===selectedType);
+  const type=catalog().find(x=>x.id===selectedType);
+  if(!type&&!existingGroup)return;
   if(!existingGroup&&countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
   workingGroup=existingGroup?copy(existingGroup):makeGroup(type);
   editing=workingGroup.id;
@@ -630,13 +637,13 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!yes)return;
   const {error}=await db.from("apartment_fee_templates").delete().eq("id",type.id).eq("apartment_id",apt);
   if(error)return errorNotice("Could not delete bill type.",error);
-  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();toast(t("Custom bill type deleted."));
+  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();openSelectedType();toast(t("Custom bill type deleted."));
  }
  async function load(apartment,ownerFlag,roster){
   if(!apartment)return clear();
   const changed=apt!==apartment;
   apt=apartment;owner=ownerFlag;residents=roster||[];
-  if(changed){cancelBill();month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
+  if(changed){cancelBill();closeHistoryDetail();month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
   setVisible("fee-workspace",owner);
   setVisible("fee-editor",owner);
   setVisible("fee-mode-controls",false);
@@ -659,7 +666,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   else renderAll();
  }
  function clear(){
-  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;cancelBill();loaded=false;reloadSaved=false;
+  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;cancelBill();closeHistoryDetail();loaded=false;reloadSaved=false;
   setVisible("fee-workspace",false);
  }
  function retranslate(){
