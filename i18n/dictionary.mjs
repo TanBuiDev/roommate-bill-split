@@ -464,6 +464,7 @@ export const vi = {
   "Sharing saved bill: {bill}": "Đang dùng hóa đơn đã lưu: {bill}",
   "Saved bill copied.": "Đã sao chép hóa đơn đã lưu.",
   "Saved bill details unavailable. Refresh history.": "Không có chi tiết hóa đơn đã lưu. Hãy làm mới lịch sử.",
-  "A bill for this type and month already exists. Replacing it will reset everyone's payment status to Unpaid. The new amounts will replace the old ones.": "Đã có hóa đơn cùng loại trong tháng này. Khi ghi đè, trạng thái thanh toán của tất cả người ở sẽ trở về Chưa thanh toán và số tiền cũ được thay bằng số tiền mới."
+  "A bill for this type and month already exists. Replacing it will reset everyone's payment status to Unpaid. The new amounts will replace the old ones.": "Đã có hóa đơn cùng loại trong tháng này. Khi ghi đè, trạng thái thanh toán của tất cả người ở sẽ trở về Chưa thanh toán và số tiền cũ được thay bằng số tiền mới.",
+  "Saved days loaded for editing. Replacing the bill resets payment statuses.": "Đã tải số ngày ở của hóa đơn cũ. Nếu ghi đè, trạng thái thanh toán sẽ trở về Chưa thanh toán."
 };
 export const en = Object.freeze({});
