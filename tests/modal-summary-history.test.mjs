@@ -29,7 +29,8 @@ test("Add and edit use isolated working copies; cancel does not change saved dra
  assert.ok(!cancel.includes("groups.push"));
  const commit=fee.slice(fee.indexOf("function commitBill()"),fee.indexOf("function renderForm()"));
  assert.match(commit,/groups\.push\(candidate\)/);
- assert.ok(commit.includes("const verdict=calculateSelection([candidate]"));
+ assert.ok(commit.includes("const verdict=calculateSelection([{...candidate,enabled:true}]"));
+ assert.ok(commit.includes("idx>=0"));
  assert.ok(commit.includes("dirty=true;store();cancelBill();renderSummary()"));
 });
 test("C is one card with a single total in the resident breakdown",()=>{
@@ -60,6 +61,7 @@ test("The two history formats use the same rows and details modal",()=>{
  assert.ok(legacy.includes("historyMenu(opts"));
  assert.ok(history.includes('root.id="payment-history-dialog"'));
  assert.ok(style.includes(".history-entry-actions"));
+ assert.ok(style.includes(".history{display:grid;grid-template-columns:minmax(0,1fr);gap:0}"));
 });
 test("Payment reporting and confirmation remain available in both detail modals",()=>{
  assert.ok(fee.includes('db.rpc("confirm_apartment_fee_payment"'));
