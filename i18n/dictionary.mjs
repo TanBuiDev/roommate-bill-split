@@ -316,6 +316,9 @@ export const vi = {
   "Invitation email sent successfully.": "Đã gửi email mời thành công.",
   "Could not add resident. Check the name and try again.": "Không thể thêm người ở. Hãy kiểm tra tên và thử lại.",
   "Could not send invitation. The resident remains in your apartment.": "Không thể gửi lời mời. Người ở vẫn được lưu trong căn hộ.",
-  "Member access removed.": "Đã thu hồi quyền truy cập của thành viên."
+  "Member access removed.": "Đã thu hồi quyền truy cập của thành viên.",
+  "No email linked": "Chưa liên kết email",
+  "Remove access before deleting this resident.": "Hãy thu hồi quyền truy cập trước khi xóa người ở này.",
+  "Could not revoke this resident's invitation.": "Không thể thu hồi lời mời của người ở này."
 };
 export const en = Object.freeze({});
