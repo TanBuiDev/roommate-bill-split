@@ -595,3 +595,7 @@ h3{font-size:1.2rem;font-weight:700}
 @media(max-width:390px){
  .household-head-actions{grid-template-columns:1fr}
 }
+
+/* Manual synchronization guidance near the Refresh control. */
+.refresh-note{font-size:.74rem;color:#777;line-height:1.4;max-width:260px}
+@media(max-width:600px){.history-live-actions{justify-content:flex-start}.refresh-note{flex-basis:100%}}
