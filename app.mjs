@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
 import { createFeeUI } from "./unified-fee-ui.mjs";
+import { getEmailCaptchaToken } from "./turnstile-auth.mjs";
 import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
 import { installDashboardLayout } from "./dashboard-layout.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
@@ -33,9 +34,15 @@ const feeUI=createFeeUI({
  onHistoryChanged:(count)=>{state.feePeriodCount=count;dashboardLayout.syncHistory(count,state.bills.length);},
  onSaved:async(apartmentId)=>{
   // Preserve saved charge snapshots. Reset only the current resident preferences.
-  const {error}=await db.from("apartment_residents")
-   .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId);
-  if(error)errorNotice("Bill saved, but default weeks could not be restored.",error);
+  // Avoid a full-table UPDATE when residents already use the default weeks.
+  const needsReset=state.apt?.id===apartmentId &&
+   state.residents.some(r=>r.mode!=="w4"||Number(r.custom_days||0)!==0);
+  if(needsReset){
+   const {error}=await db.from("apartment_residents")
+    .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId)
+    .or("mode.neq.w4,custom_days.neq.0");
+   if(error)errorNotice("Bill saved, but default weeks could not be restored.",error);
+  }
   if(state.apt?.id===apartmentId)await loadApartment(apartmentId,{preserveDraft:true});
  }
 });
@@ -371,8 +378,9 @@ async function sendInviteForResident(resident,email){
  });
  if(error)throw error;
  state.inviteLink=SITE+"/?invite="+data.token;
+ const captchaToken=await getEmailCaptchaToken();
  const {error:mailError}=await db.auth.signInWithOtp({
-  email,options:{emailRedirectTo:state.inviteLink}
+  email,options:{emailRedirectTo:state.inviteLink,...(captchaToken?{captchaToken}:{})}
  });
  try {
   await refreshInvites();
@@ -1027,7 +1035,10 @@ async function login(e){
  try{
   const pending=sessionStorage.getItem("oghep-invite");
   const redirect=pending?SITE+"/?invite="+pending:SITE+"/";
-  const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:redirect}});
+  const captchaToken=await getEmailCaptchaToken();
+  const {error}=await db.auth.signInWithOtp({
+   email,options:{emailRedirectTo:redirect,...(captchaToken?{captchaToken}:{})}
+  });
   if(error)throw error;
   state.loginUntil=Date.now()+60000;
   authMessage("Check your inbox and spam folder for the sign-in link.");
@@ -1035,6 +1046,8 @@ async function login(e){
   if(err?.status===429||String(err?.code||"").includes("rate_limit")){
    state.loginUntil=Date.now()+30*60000;
    authMessage("Email sending is temporarily limited. Please try again in 30–60 minutes.");
+  }else if(String(err?.code||"").toLowerCase().includes("captcha")||String(err?.message||"").toLowerCase().includes("captcha")){
+   authMessage("Security verification failed. Please reload and try again.");
   }else{authMessage("Could not send the sign-in link. Please try again.");console.error(err)}
  }finally{
   if(state.loginUntil)localStorage.setItem("oghep-login-backoff-v1",String(state.loginUntil));

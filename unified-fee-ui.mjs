@@ -95,7 +95,13 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     <button id="ub-copy-last" class="button secondary ub-copy-previous" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-last-label">Use last month's template</span></button>
    </div></div>
   <div class="ub-add-row">
+   <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
    <button type="button" id="ub-add" class="button primary"><span class="ub-add-plus" aria-hidden="true">+</span><span id="ub-add-label">Add bill</span></button>
+  </div>
+  <div class="ub-category-actions">
+   <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
+   <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
+   <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
   </div>
   <dialog id="ub-bill-dialog" class="ub-bill-dialog" aria-labelledby="ub-modal-heading">
    <div class="ub-bill-dialog-inner">
@@ -103,12 +109,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
      <h3 id="ub-modal-heading">Add bill</h3>
      <button id="ub-modal-close" class="mini" type="button" aria-label="Close">×</button>
     </div>
-    <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
-    <div class="ub-category-actions">
-     <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
-     <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
-     <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
-    </div>
+    <p id="ub-modal-type" class="ub-modal-type"></p>
     <section id="ub-form" class="ub-form hidden" aria-labelledby="ub-form-title">
      <h4 id="ub-form-title">Bill details</h4>
      <div id="ub-form-items"></div>
@@ -174,19 +175,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const h=legacy.querySelector("h4");if(h)h.textContent=t("Monthly settlements");
    const p=legacy.querySelector(".fee-history-head p");if(p)p.textContent=t("Saved periods and payment progress.");
   }
-  el("ub-type").addEventListener("change",async e=>{
-   const next=e.target.value,prior=selectedType;
-   if(workingGroup&&JSON.stringify(workingGroup)!==originalWorking){
-    const yes=await confirmAction({title:t("Discard unsaved bill changes?"),message:t("Switching types will discard changes in this open form."),confirmText:t("Switch bill type"),cancelText:t("Continue editing")});
-    if(!yes){e.target.value=prior;return}
-   }
-   selectedType=next;openSelectedType();
-  });
-  el("ub-add").addEventListener("click",()=>{
-   const unused=catalog().find(type=>!groups.some(group=>group.id===type.id));
-   if(unused)selectedType=unused.id;
-   openSelectedType();
-  });
+  el("ub-type").addEventListener("change",e=>{selectedType=e.target.value;refreshTypeActions()});
+  el("ub-add").addEventListener("click",openSelectedType);
   el("ub-modal-close").addEventListener("click",cancelBill);
   billDialog.addEventListener("cancel",e=>{e.preventDefault();cancelBill()});
   el("ub-new-type").addEventListener("click",()=>openTypeDialog());
@@ -224,7 +214,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const isCustom=templates.some(x=>"custom:"+x.id===selectedType);
   setVisible("ub-edit-type",isCustom&&owner);
   setVisible("ub-delete-type",isCustom&&owner);
-  el("ub-add-label").textContent=t("Add bill");
+  el("ub-add-label").textContent=t(groups.some(g=>g.id===selectedType)?"Edit bill":"Add bill");
  }
  function renderCatalog(){
   const select=el("ub-type");const prior=selectedType;
@@ -256,6 +246,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const editingOld=Boolean(existingGroup);
   el("ub-modal-heading").textContent=t(editingOld?"Edit bill":"Add bill");
   el("ub-done").textContent=t(editingOld?"Save changes":"Add bill");
+  el("ub-modal-type").textContent=displayGroupName(workingGroup);
   el("ub-bill-error").textContent="";
   renderCatalog();renderForm();
   const dlg=el("ub-bill-dialog");
@@ -280,7 +271,9 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const idx=groups.findIndex(g=>g.id===candidate.id);
   if(idx>=0)groups[idx]=candidate;
   else groups.push(candidate);
-  dirty=true;store();cancelBill();renderSummary();
+  dirty=true;store();cancelBill();
+  if(idx<0){const next=catalog().find(type=>!groups.some(g=>g.id===type.id));if(next)selectedType=next.id;}
+  renderCatalog();renderSummary();
  }
  function renderForm(){
   setVisible("ub-form",Boolean(editing)&&owner);
@@ -642,7 +635,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!yes)return;
   const {error}=await db.from("apartment_fee_templates").delete().eq("id",type.id).eq("apartment_id",apt);
   if(error)return errorNotice("Could not delete bill type.",error);
-  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();openSelectedType();toast(t("Custom bill type deleted."));
+  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();toast(t("Custom bill type deleted."));
  }
  async function load(apartment,ownerFlag,roster){
   if(!apartment)return clear();
@@ -702,7 +695,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(hdesc)hdesc.textContent=t("Saved periods and payment progress.");
   const options=el("ub-new-method").options;
   [...options].forEach(o=>o.textContent=t(METHODS_LABEL[o.value]||o.value));
-  if(loaded){renderAll();if(workingGroup){el("ub-modal-heading").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Edit bill":"Add bill");el("ub-done").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Save changes":"Add bill");renderForm()}}
+  if(loaded){renderAll();if(workingGroup){el("ub-modal-heading").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Edit bill":"Add bill");el("ub-done").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Save changes":"Add bill");el("ub-modal-type").textContent=displayGroupName(workingGroup);renderForm()}}
  }
  install();
  setVisible("fee-workspace",false);

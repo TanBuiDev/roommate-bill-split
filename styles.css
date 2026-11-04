@@ -1676,3 +1676,38 @@ body.app-active #billing-history-panel .history-entry-actions .mini{
 @media(prefers-reduced-motion:reduce){
  body.app-active #bill-summary-card .ub-actions button{transition:none}
 }
+
+
+/* Choose a bill category before opening the data-entry modal. */
+body.app-active #fee-editor #bill-add-heading{align-items:flex-start}
+body.app-active #fee-editor #bill-add-heading .ub-add-row{
+ display:flex;align-items:flex-end;gap:10px;flex:1 1 450px;min-width:0;margin:0
+}
+body.app-active #fee-editor #bill-add-heading .ub-category{
+ display:grid;gap:7px;min-width:0;flex:1 1 320px;margin:0
+}
+body.app-active #fee-editor #bill-add-heading .ub-category>span{
+ font-size:.77rem;font-weight:700
+}
+body.app-active #fee-editor #bill-add-heading #ub-type{
+ width:100%;min-width:0;max-width:none;min-height:46px;border-radius:12px
+}
+body.app-active #fee-editor #bill-add-heading #ub-add{
+ flex:0 0 auto;min-height:46px;border-radius:12px;white-space:nowrap
+}
+body.app-active #fee-editor>.ub-category-actions{
+ display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:-5px;margin-bottom:5px
+}
+body.app-active #fee-editor>.ub-category-actions .mini{
+ min-height:38px;border:1px solid #dcdcdc;border-radius:10px;background:#fff
+}
+.ub-bill-dialog #ub-modal-type{
+ margin:0;color:#555;font-size:.86rem;font-weight:650;
+ padding-bottom:12px;border-bottom:1px solid #eeeeee
+}
+@media(max-width:650px){
+ body.app-active #fee-editor #bill-add-heading{display:grid;gap:12px}
+ body.app-active #fee-editor #bill-add-heading .ub-add-row{width:100%;flex-wrap:wrap}
+ body.app-active #fee-editor #bill-add-heading .ub-category{flex:1 1 100%}
+ body.app-active #fee-editor #bill-add-heading #ub-add{width:100%}
+}

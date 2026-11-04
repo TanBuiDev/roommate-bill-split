@@ -3,23 +3,45 @@ name: Test and deploy O Ghep
 on:
   push:
     branches: [main]
+    paths:
+      - '*.mjs'
+      - 'i18n/**'
+      - 'index.html'
+      - 'styles.css'
+      - '_headers'
+      - 'tests/**'
+      - 'security/**'
+      - '.github/workflows/unified-billing-tests.yml'
   pull_request:
     branches: [main]
+    paths:
+      - '*.mjs'
+      - 'i18n/**'
+      - 'index.html'
+      - 'styles.css'
+      - '_headers'
+      - 'tests/**'
+      - 'security/**'
+      - '.github/workflows/unified-billing-tests.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: oghep-pages-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   test:
     name: Validate application and billing
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: oghep-test-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    outputs:
+      site_changed: ${{ steps.site_changes.outputs.site_changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -31,41 +53,87 @@ jobs:
           done
       - name: Run billing regression tests
         run: node --test tests/*.test.mjs
+      - name: Check if production site assets changed
+        id: site_changes
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "site_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" != "push" ]]; then
+            echo "site_changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]]; then
+            files="$(git ls-tree -r --name-only "$GITHUB_SHA")"
+          else
+            files="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
+          fi
+          echo "$files" | grep -Eq '(^[^/]+\.mjs$|^i18n/[^/]+\.mjs$|^index\.html$|^styles\.css$|^_headers$)' \
+            && changed=true || changed=false
+          echo "site_changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "Production assets changed: $changed"
 
   deploy:
     name: Deploy Cloudflare Pages production
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.test.outputs.site_changed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: oghep-production
+      cancel-in-progress: false
     permissions:
       contents: read
       deployments: write
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skip outdated main commits
+        id: current
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping superseded deployment $GITHUB_SHA (latest: $latest)"
+          fi
+
       - name: Verify required Cloudflare credentials
+        if: steps.current.outputs.current == 'true'
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           if [ -z "$CF_TOKEN" ]; then
-            echo "::error title=Cloudflare token missing::Add CLOUDFLARE_API_TOKEN in repository Settings > Secrets and variables > Actions before production can deploy."
+            echo "::error title=Cloudflare token missing::Configure CLOUDFLARE_API_TOKEN in repository Actions secrets."
             exit 1
           fi
 
       - name: Package only public site files
+        if: steps.current.outputs.current == 'true'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist/i18n
-          cp index.html styles.css ./*.mjs dist/
+          cp index.html styles.css ./*.mjs _headers dist/
           cp i18n/*.mjs dist/i18n/
           printf '{"commit":"%s"}\n' "$GITHUB_SHA" > dist/deploy-version.json
           test -f dist/index.html
+          test -f dist/_headers
           test -f dist/unified-fee-ui.mjs
           test -f dist/i18n/dictionary.mjs
           find dist -type f | sort
 
       - name: Deploy to oghep.pages.dev
+        if: steps.current.outputs.current == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -74,6 +142,7 @@ jobs:
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify published commit
+        if: steps.current.outputs.current == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -88,5 +157,5 @@ jobs:
             echo "Production has not reported the new commit (attempt $attempt/12)."
             sleep 5
           done
-          echo "::error title=Production verification failed::Cloudflare deployment completed but the production URL did not return the expected commit."
+          echo "::error title=Production verification failed::Cloudflare Pages did not return the expected commit."
           exit 1
