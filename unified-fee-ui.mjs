@@ -26,11 +26,12 @@ const parseMoney=value=>Math.min(maxAmount,Number(String(value||"").replace(/[^0
 const copy=value=>JSON.parse(JSON.stringify(value));
 const uuid=()=>crypto.randomUUID();
 
-export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved}){
+export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved,onMonthChange}){
  let apt=null,owner=false,residents=[],periods=[],templates=[],payments=[];
  let month=nowMonth(),groups=[],selectedType="electric",editing=null,dirty=false,pending=false,loaded=false;
  let reloadSaved=false,shown=new Set(),newType={name:"",fees:[{name:"",method:"days"}]},typeBeingEdited=null;
  const active=()=>apt&&getContext().apt?.id===apt;
+ const countFees=()=>groups.reduce((n,g)=>n+g.fees.length,0);
  const daysInMonth=()=>{const [y,m]=month.split("-").map(Number);return new Date(y,m,0).getDate()||30};
  const residentDays=resident=>{
   const cap=daysInMonth();
@@ -193,7 +194,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     const yes=await confirmAction({title:t("Switch billing month?"),message:t("Your unfinished bills stay in this browser session. Continue to another month?"),confirmText:t("Switch month"),cancelText:t("Cancel")});
     if(!yes){e.target.value=month;return}
    }
-   month=next;restoreMonth();
+   month=next;restoreMonth();onMonthChange?.();
   });
   retranslate();
  }
@@ -224,7 +225,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!type)return;
   let group=groups.find(g=>g.id===selectedType);
   if(!group){
-   if(groups.length>=30)return toast(t("Maximum 30 bills per period."));
+   if(countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
    group=makeGroup(type);groups.push(group);
    dirty=true;store();
   }
@@ -305,6 +306,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    if(!owner)toggle.disabled=edit.disabled=remove.disabled=true;
    row.append(toggle,title,amount,edit,remove);list.append(row);
   }
+  const tooMany=countFees()>30;
   const totalEntered=groups.reduce((sum,g)=>sum+groupTotal(g),0);
   const totalSelected=groups.filter(g=>g.enabled).reduce((sum,g)=>sum+groupTotal(g),0);
   el("ub-total").textContent=money(totalSelected);
@@ -318,8 +320,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     people.append(line);
    }
   }else people.append(node("p","fee-hint",t("Choose at least one nonzero bill to view the breakdown.")));
-  el("ub-error").textContent=result.valid?"":(groups.length?t(result.error):"");
-  el("ub-save").disabled=!active()||!owner||pending||!result.valid;
+  el("ub-error").textContent=tooMany?t("Maximum 30 fee items per period."):(result.valid?"":(groups.length?t(result.error):""));
+  el("ub-save").disabled=!active()||!owner||pending||tooMany||!result.valid;
   el("ub-share").disabled=!result.valid;
   refreshTypeActions();
  }
@@ -447,7 +449,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  async function savePeriod(){
   if(!owner||pending||!active())return;
   const result=calculation();
-  if(!result.valid)return renderSummary();
+  if(!result.valid||countFees()>30)return renderSummary();
   const old=existing();
   if(old){
    const confirmed=await confirmAction({title:t("Replace existing billing period?"),message:t("Replacing this period resets previous payment confirmations."),confirmText:t("Replace bill"),cancelText:t("Keep existing bill"),tone:"danger"});
@@ -590,5 +592,5 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  install();
  setVisible("fee-workspace",false);
- return {load,clear,retranslate};
+ return {load,clear,retranslate,getMonth:()=>month,refresh:()=>{renderForm();renderSummary()}};
 }
