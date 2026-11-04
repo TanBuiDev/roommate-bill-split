@@ -1131,3 +1131,129 @@ h3{font-size:1.2rem;font-weight:700}
 /* Preserve edit access for historical standalone bills without an extra main tab. */
 body.legacy-edit-active #bill-details-panel,
 body.legacy-edit-active #summary-panel{display:block!important}
+
+
+/* Three-section authenticated workspace: keep public landing content visible only
+   for signed-out visitors, without changing the underlying app or stored data. */
+body.app-active .hero-wrap,
+body.app-active #features,
+body.app-active #stories,
+body.app-active #pricing,
+body.app-active .final-wrap,
+body.app-active .site-footer{display:none!important}
+body.app-active .nav-links,
+body.app-active .nav-actions>.btn{display:none!important}
+body.app-active .dashboard-wrap{min-height:calc(100vh - 86px);padding-block:28px 64px}
+body.app-active .dashboard-head{margin-bottom:16px}
+body.app-active .dashboard-head .tag{display:none}
+body.app-active #dashboard-title{font-size:clamp(1.5rem,2.7vw,2.1rem)}
+body.app-active #apartment-app{min-width:0}
+.app-nav{display:flex;align-items:center;gap:7px;min-width:0}
+.app-nav-link{
+ display:inline-flex;align-items:center;gap:7px;
+ color:#3b3b3b;text-decoration:none;white-space:nowrap;
+ font-size:.82rem;font-weight:720;line-height:1.2;padding:10px 12px;
+ border-radius:999px;transition:background .15s,color .15s;
+}
+.app-nav-link:hover,.app-nav-link:focus-visible{background:#eee;color:#111}
+.app-nav-index{
+ display:inline-flex;align-items:center;justify-content:center;
+ width:23px;height:23px;border-radius:50%;background:#141414;color:white;
+ font-size:.68rem;font-weight:800;
+}
+.app-nav-link:focus-visible{outline:2px solid #111;outline-offset:3px}
+#owner-panel,#fee-workspace,#billing-history-panel{scroll-margin-top:104px}
+body.app-active #fee-workspace{min-width:0}
+body.app-active #fee-workspace>.panel-header{margin-bottom:16px}
+body.app-active #fee-workspace>.panel-header h3{font-size:1.22rem}
+body.app-active #fee-editor{gap:16px}
+body.app-active #fee-editor>.ub-intro{
+ display:flex;align-items:center;justify-content:space-between;gap:18px;
+ padding:15px 17px;background:#f6f6f6;border-radius:12px;margin:0;
+}
+body.app-active #fee-editor>.ub-intro h4{font-size:1.02rem}
+body.app-active #fee-editor>.ub-intro p{font-size:.79rem;color:#666;line-height:1.4;max-width:48ch}
+body.app-active #fee-editor .ub-month-label{min-width:175px;max-width:220px}
+.bill-days-step{display:block;min-width:0;border:1px solid #dedede;border-radius:12px;background:#fff;overflow:clip}
+.bill-days-toggle{
+ cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:14px;
+ min-height:74px;padding:17px;list-style:none;user-select:none;
+}
+.bill-days-toggle::-webkit-details-marker{display:none}
+.bill-days-toggle:hover{background:#fafafa}
+.bill-days-toggle:focus-visible{outline:2px solid #141414;outline-offset:-2px}
+.bill-days-toggle-title{display:grid;gap:5px;min-width:0}
+.bill-days-toggle-title strong{font-size:1.02rem;font-weight:760}
+.bill-days-toggle-title small{font-size:.78rem;color:#777}
+.bill-days-toggle-side{display:flex;align-items:center;gap:16px;flex:0 0 auto}
+.bill-days-count{font-size:.78rem;color:#555;font-weight:650;white-space:nowrap}
+.bill-days-chevron{width:9px;height:9px;border:solid #333;border-width:0 2px 2px 0;transform:rotate(45deg);transition:transform .2s}
+.bill-days-step[open] .bill-days-chevron{transform:rotate(225deg)}
+.bill-days-step[open]>.bill-days-toggle{border-bottom:1px solid #e8e8e8}
+body.app-active .bill-resident-board.panel{margin:0;padding:16px;border:0;box-shadow:none;border-radius:0;background:transparent}
+body.app-active .bill-resident-board>.panel-header{display:none}
+body.app-active .bill-resident-board>.table-intro{margin-top:0}
+body.app-active .bill-resident-board .member-board{margin:0}
+.bill-stage-heading{padding-top:20px;border-top:1px solid #ececec;display:grid;gap:5px}
+.bill-stage-heading h4{margin:0;font-size:1.07rem;font-weight:780;letter-spacing:-.015em}
+.bill-stage-heading p{margin:0;color:#737373;font-size:.8rem;line-height:1.5}
+body.app-active #fee-editor>.ub-summary{margin:0;padding:0;border:0}
+body.app-active #fee-editor .ub-summary-head{margin:0 0 10px}
+body.app-active #fee-editor .ub-add-row{margin-top:0}
+body.app-active #fee-editor .ub-category-actions{margin-top:0}
+body.app-active #fee-editor #ub-save{min-height:48px}
+body.app-active #fee-editor .fee-breakdown{margin:16px 0}
+body.app-active #billing-history-panel{min-width:0}
+body.app-active #bill-history-current{margin:0 0 20px;padding:0;border:0}
+body.app-active #bill-history-current .fee-history-head{margin:0 0 12px}
+body.app-active #bill-history-current .fee-history-head h4{font-size:.91rem;margin:0}
+body.app-active #bill-history-current .fee-history-head p,
+body.app-active #bill-history-current #fee-refresh{display:none!important}
+.bill-history-group-title{font-size:.91rem;font-weight:760;margin:14px 0 12px}
+.bill-history-empty{padding:12px 0 6px}
+.bill-legacy-history .history{margin-top:0}
+@media(max-width:1040px){
+ .app-nav-link{padding:9px 8px;font-size:.75rem}
+}
+@media(max-width:850px){
+ body.app-active .header-inner{flex-wrap:wrap;gap:8px;padding-block:8px}
+ body.app-active .header-inner>.brand{flex:1}
+ body.app-active .header-inner>.nav-actions{margin-left:auto}
+ .app-nav{order:5;width:100%;justify-content:space-between;border-top:1px solid #ededed;padding-top:5px;gap:4px}
+ .app-nav-link{flex:1;justify-content:center;padding:9px 3px;font-size:.75rem;gap:6px}
+ .app-nav-index{width:21px;height:21px;flex:0 0 21px}
+ body.app-active .dashboard-wrap{padding-block:22px 45px}
+}
+@media(max-width:680px){
+ body.app-active #fee-editor>.ub-intro{display:grid;gap:10px;padding:14px}
+ body.app-active #fee-editor .ub-month-label{min-width:0;max-width:none}
+ .bill-days-toggle{padding:14px 12px;min-height:65px;gap:8px}
+ .bill-days-toggle-title strong{font-size:.92rem}
+ .bill-days-toggle-title small{font-size:.72rem}
+ .bill-days-toggle-side{gap:9px}
+ .bill-days-count{font-size:.7rem;white-space:normal;text-align:right;max-width:112px}
+ body.app-active .bill-resident-board.panel{padding:12px}
+ body.app-active .bill-resident-board .member-board{overflow:visible}
+ body.app-active .bill-resident-board .member-table{min-width:0!important;width:100%;display:block}
+ body.app-active .bill-resident-board .member-table tbody{display:grid;gap:10px}
+ body.app-active .bill-resident-board .member-table tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:12px 9px}
+ body.app-active .bill-resident-board .member-table td:nth-child(8){display:none!important}
+ body.app-active .bill-resident-board .member-table td:nth-child(9){
+  position:absolute;top:8px;right:7px;width:40px;align-items:center
+ }
+ body.app-active .bill-resident-board .member-table td:nth-child(6),
+ body.app-active .bill-resident-board .member-table td:nth-child(7){grid-column:span 2}
+ body.app-active .bill-resident-board .member-table .week-choice{min-width:0;width:100%;padding:7px 2px}
+ body.app-active .bill-resident-board .member-table .full-period-choice{min-height:48px}
+ body.app-active .bill-resident-board .member-table .delete-person{min-width:36px;min-height:36px}
+ .bill-stage-heading{padding-top:16px}
+ .bill-stage-heading h4{font-size:.99rem}
+ #billing-history-panel .history-head{gap:12px}
+ #billing-history-panel .history-live-actions{max-width:100%}
+}
+@media(max-width:380px){
+ .app-nav-link{font-size:.69rem;gap:4px}
+ .app-nav-index{width:19px;height:19px;flex-basis:19px;font-size:.62rem}
+ .bill-days-toggle-side{gap:5px}
+ .bill-days-count{max-width:82px}
+}
