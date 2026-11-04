@@ -1711,3 +1711,45 @@ body.app-active #fee-editor>.ub-category-actions .mini{
  body.app-active #fee-editor #bill-add-heading .ub-category{flex:1 1 100%}
  body.app-active #fee-editor #bill-add-heading #ub-add{width:100%}
 }
+
+
+/* Mobile day editor: keep the Full period and custom-day controls geometrically
+   identical. The custom input already has an accessible aria-label; its short
+   placeholder replaces the redundant visual caption on small screens only. */
+@media(max-width:767px){
+  body.app-active #residents-panel.bill-resident-board .member-table tr td:nth-child(6),
+  body.app-active #residents-panel.bill-resident-board .member-table tr td:nth-child(7){
+    box-sizing:border-box;
+    min-width:0;
+    align-items:stretch;
+    justify-content:center;
+  }
+  body.app-active #residents-panel.bill-resident-board .member-table tr td.custom-days-cell .cell-caption{
+    display:none!important;
+  }
+  body.app-active #residents-panel.bill-resident-board .member-table .full-period-choice,
+  body.app-active #residents-panel.bill-resident-board .member-table .custom-days-cell .day-choice{
+    box-sizing:border-box;
+    display:flex;
+    width:100%;
+    max-width:none;
+    height:58px;
+    min-height:58px;
+    margin:0;
+    padding:6px 10px;
+    border-radius:999px;
+    text-align:center;
+    align-items:center;
+    justify-content:center;
+    line-height:1.2;
+  }
+  body.app-active #residents-panel.bill-resident-board .member-table .custom-days-cell .day-choice{
+    display:block;
+    font-size:clamp(.76rem,2.8vw,.86rem);
+    font-weight:600;
+  }
+  body.app-active #residents-panel.bill-resident-board .member-table .custom-days-cell .day-choice::placeholder{
+    opacity:1;
+    color:#737373;
+  }
+}
