@@ -61,6 +61,13 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 - Newly created residents, including the owner opting into bill splitting, start with **4 weeks (28 days)**. After a successful bill save, historical allocations stay unchanged and current resident day preferences are reset to **4 weeks (28 days)** for the next bill. If that second update fails, the user is told the bill was saved but defaults were not reset.
 - Realtime publication entries for apartment tables are disabled because this application relies on manual refresh only. Database RLS still controls read permissions.
 
+## Full billing period shortcut
+
+- A **Full period / Cả kỳ** choice is available beside the 1–4 week shortcuts for every resident. It automatically uses the currently selected month's calendar day count (28, 29, 30 or 31) or the optional actual meter-reading date range.
+- Four weeks always means **28 days**; it does not automatically mean the whole month. A separate `full` mode persists in resident preferences and saved bill allocations, and is restored when editing an old bill.
+- The **4 weeks** default for new residents and the reset after saving bills remain unchanged, as requested previously. Existing roster choices and historical payment statuses are not migrated.
+- Multi-fee periods that split by days also interpret a resident's `full` mode as the entire fee period.
+
 ## Billing behavior
 
 - Currency entry dynamically formats thousands groups in the vi-VN convention, e.g. 160.000.000.
