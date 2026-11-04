@@ -1,5 +1,6 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
+  "Enter days": "Nhập ngày",
   "Allocated amounts do not match the bill total. Please check the sharing rule.": "Tổng tiền phân bổ không khớp tổng hóa đơn. Vui lòng kiểm tra quy tắc chia.",
   "Replacing a saved billing period resets its payment statuses.": "Ghi đè kỳ thanh toán đã lưu sẽ đặt lại trạng thái thanh toán.",
   "Manage bills and their charges for the selected month.": "Quản lý các khoản phí của tháng đã chọn.",
