@@ -135,6 +135,13 @@ The layout has DOM smoke tests in `tests/dashboard-layout.test.mjs`, and its pro
 
 **Release verification:** GitHub Actions must confirm the production `deploy-version.json` commit matches the latest `main` commit; the repository's contents being updated alone is not proof that Cloudflare is serving the new UI.
 
+## Compact monthly calculator and payment history (current)
+
+- **Section B:** "Add bill" opens a native, accessible modal. Category selection, custom type management, subfees and the single group sharing rule are inside the modal. Edits are made to a temporary copy; Cancel, Escape or Close discard unsaved values without mutating the current month. Confirm adds or updates the bill and checks the group allocation first. Selecting a category already present edits its current draft instead of duplicating it.
+- **Section C:** one large summary card contains selected bills, a single "Total amount" integrated into the resident breakdown, a mismatch warning if a valid breakdown does not reconcile, and three icon-only Save/Copy/Share buttons on one line with accessible labels and tooltips. An intentionally unchecked bill is excluded by design, not treated as an arithmetic error; the total entered across excluded bills is not shown.
+- **Section 03:** saved monthly settlements and legacy standalone bills use a consistent desktop row/mobile card style. Primary actions are Details, Copy bill and an overflow menu containing Share, legacy Edit / monthly Copy to editor, and Delete if owner. Details are shown in a shared native dialog. Payment-reporting and owner-confirmation actions remain within the detail dialog with the existing permission checks and RPCs.
+- The historical billing database tables, exact monetary allocation engine, owner/member permissions and saved payment statuses are unchanged. No migration is required. The existing Direct Upload GitHub Actions workflow deploys only after the syntax and regression tests succeed.
+
 ## November 2026 UX consolidation (current workflow)
 
 The latest authenticated dashboard keeps the original black-and-white identity and the approved resident/week table, but applies one consistent soft-card, rounded-input, lightweight-shadow design system.
