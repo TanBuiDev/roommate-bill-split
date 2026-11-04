@@ -687,3 +687,8 @@ h3{font-size:1.2rem;font-weight:700}
 .fee-breakdown-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0;font-size:.9rem}
 .fee-breakdown-row+.fee-breakdown-row{border-top:1px solid #eee}
 .fee-breakdown-row strong{white-space:nowrap;font-weight:760}
+
+.fee-person-breakdown{margin-top:9px;font-size:.77rem}
+.fee-person-breakdown summary{cursor:pointer;color:#4d4d4d;font-weight:650}
+.fee-person-breakdown-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 0}
+.fee-person-breakdown-row strong{font-size:.77rem;white-space:nowrap}
