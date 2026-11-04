@@ -24,7 +24,7 @@ const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMo
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
  shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),pendingWrites:0,
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
- loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false};
+ loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false,justSavedBillId:null};
 const feeUI=createFeeUI({
  db,getContext:()=>state,t,money,toast,errorNotice,confirmAction,nowMonth,
  onSaved:async(apartmentId)=>{
@@ -113,10 +113,20 @@ function renderResult(){
   if(share)share.textContent=money(map.get(resident.id)?.share||0);
   if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
  }
- label("#validation",t(validateBill()));
- $("#save").disabled=state.billSaving||!!validateBill();
- $("#copy").disabled=!r.length||!!validateBill();
- $("#share").disabled=!r.length||!!validateBill();
+ const issue=validateBill();
+ label("#validation",t(issue));
+ $("#save").disabled=state.billSaving||!!issue;
+ const useCurrent=!issue&&r.length>0;
+ const saved=useCurrent?null:getPreferredSavedBill();
+ const canExport=useCurrent||!!saved;
+ $("#copy").disabled=!canExport;
+ $("#share").disabled=!canExport;
+ $("#copy").textContent=t(saved?"Copy saved bill":"Copy breakdown");
+ const shareLabel=$("#share").querySelector("span");
+ if(shareLabel)shareLabel.textContent=t(saved?"Share saved bill":"Share result");
+ const savedDesc=saved?typeName(saved.bill_type)+" · "+saved.bill_month.slice(5)+"/"+saved.bill_month.slice(0,4):"";
+ label("#share-target-note",saved?t("Sharing saved bill: {bill}",{bill:savedDesc}):"");
+ show("#share-target-note",!!saved);
 }
 function setDraft(){
  $("#bill-type").value=state.draft.type;
@@ -689,6 +699,7 @@ async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
  const isNewApartment=state.apt?.id!==id;
+ if(isNewApartment)state.justSavedBillId=null;
  const seq=++state.aptSeq;
  state.apt=a;state.owner=a.owner_id===state.user?.id;
  localStorage.setItem("oghep-active:"+state.user.id,a.id);
@@ -734,8 +745,16 @@ function renderHistory(){
   line.append(desc,el("strong","bill-money",money(bill.amount)));panel.append(line);
   const actions=el("div","bill-actions");
   const toggle=el("button","mini",t(state.shown.has(bill.id)?"Hide details":"Details"));
+  toggle.type="button";
   toggle.addEventListener("click",()=>{state.shown.has(bill.id)?state.shown.delete(bill.id):state.shown.add(bill.id);renderHistory()});
   actions.append(toggle);
+  const copySaved=el("button","mini bill-action-export",t("Copy bill"));
+  copySaved.type="button";copySaved.disabled=!allocations.length;
+  copySaved.addEventListener("click",()=>copySavedBill(bill));
+  const shareSaved=el("button","mini bill-action-export",t("Share bill"));
+  shareSaved.type="button";shareSaved.disabled=!allocations.length;
+  shareSaved.addEventListener("click",()=>shareSavedBill(bill));
+  actions.append(copySaved,shareSaved);
   if(state.owner){
    const edit=el("button","mini",t("Edit"));
    edit.addEventListener("click",()=>loadSavedBill(bill));
@@ -815,7 +834,7 @@ async function saveBill(){
  if(previous){
   const confirmed=await confirmAction({
    title:"Replace existing bill?",
-   message:"A bill for this type and month already exists. Replace its amounts? Existing payment statuses will be preserved.",
+   message:"A bill for this type and month already exists. Replacing it will reset everyone's payment status to Unpaid. The new amounts will replace the old ones.",
    confirmText:"Replace bill",
    cancelText:"Keep existing bill"
   });
@@ -827,13 +846,14 @@ async function saveBill(){
  const apartmentId=state.apt.id;
  let saved=false;
  try{
-  const {error}=await db.rpc("save_apartment_bill",{
+  const {data:savedBillId,error}=await db.rpc("save_apartment_bill",{
    p_apartment_id:apartmentId,p_type:state.draft.type,p_month:state.draft.month,
    p_amount:Number(state.draft.amount),p_days:period.days,p_items:items,
    p_start:period.start,p_end:period.end
   });
   if(error)throw error;
   saved=true;
+  state.justSavedBillId=savedBillId||null;
   // Bill allocations are snapshots; reset only the current roster after saving.
   const reset=await db.from("apartment_residents")
    .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId);
@@ -858,25 +878,62 @@ function buildBreakdown(){
   ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+t("{count} days",{count:p.days})+": "+money(p.share)),
   "",t("TOTAL")+": "+money(parts.reduce((s,p)=>s+p.share,0))].join("\n");
 }
-function copyBreakdown(){
- const text=buildBreakdown();
- if(text)clipboard(text,"Breakdown copied.");
+// Saved bill exports use the immutable allocations snapshot, never the reset editor.
+function getPreferredSavedBill(){
+ const bill=state.bills.find(x=>x.id===state.justSavedBillId)||state.bills[0];
+ return bill&&(state.alloc[bill.id]||[]).length?bill:null;
 }
-async function shareBreakdown(){
- const summary=buildBreakdown();if(!summary)return;
+function buildSavedBillBreakdown(bill){
+ const allocations=state.alloc[bill.id]||[];
+ if(!bill||!state.apt||!allocations.length)return "";
+ const header=[
+  typeName(bill.bill_type)+" — "+bill.bill_month,
+  t("Apartment")+": "+state.apt.name,
+  t("Total")+": "+money(bill.amount),
+  t("Period")+": "+t("{count} days",{count:bill.billing_days}),""
+ ];
+ const residents=allocations.map((p,i)=>(i+1)+". "+p.resident_name+" · "+
+   t("{count} days",{count:p.days})+": "+money(p.share));
+ return [...header,...residents,"",t("TOTAL")+": "+money(bill.amount)].join("\n");
+}
+function selectedSharePayload(){
+ if(state.owner&&!validateBill()&&split()){
+  return {title:"Ở Ghép — "+typeName(state.draft.type),text:buildBreakdown()};
+ }
+ const bill=getPreferredSavedBill();
+ return bill?{title:"Ở Ghép — "+typeName(bill.bill_type),text:buildSavedBillBreakdown(bill)}:null;
+}
+function copyBreakdown(){
+ const payload=selectedSharePayload();
+ if(payload?.text)clipboard(payload.text,"Breakdown copied.");
+}
+function copySavedBill(bill){
+ const text=buildSavedBillBreakdown(bill);
+ if(text)clipboard(text,"Saved bill copied.");
+ else toast("Saved bill details unavailable. Refresh history.");
+}
+async function shareText(title,text){
+ if(!text){toast("Saved bill details unavailable. Refresh history.");return}
  if(typeof navigator.share==="function"){
   try{
-   await navigator.share({title:"Ở Ghép — "+typeName(state.draft.type),text:summary});
+   await navigator.share({title,text});
    toast("Breakdown shared.");return;
   }catch(err){
    if(err?.name==="AbortError")return;
-   console.warn("Web share failed, falling back to clipboard",err);
+   console.warn("Web share unavailable, using clipboard",err);
   }
  }
  try{
-  await navigator.clipboard.writeText(summary);
+  await navigator.clipboard.writeText(text);
   toast("Share unavailable. Breakdown copied instead.");
  }catch(err){errorNotice("Sharing failed. Please try again.",err)}
+}
+async function shareBreakdown(){
+ const payload=selectedSharePayload();
+ if(payload)await shareText(payload.title,payload.text);
+}
+async function shareSavedBill(bill){
+ await shareText("Ở Ghép — "+typeName(bill.bill_type),buildSavedBillBreakdown(bill));
 }
 function refreshLogin(){
  const remain=Math.max(0,Math.ceil((state.loginUntil-Date.now())/1000));
@@ -909,7 +966,7 @@ async function login(e){
 function signOutView(){
  feeUI.clear();
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
- state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
+ state.residents=[];state.bills=[];state.alloc={};state.justSavedBillId=null;state.dirty.clear();clearTimeout(state.writeTimer);
  state.authStatus="";label("#authmsg","");
  show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
  label("#sync-chip",t("Signed out"));$("#sync-chip").classList.remove("connected");
