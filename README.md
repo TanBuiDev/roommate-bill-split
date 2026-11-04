@@ -1,17 +1,33 @@
 # Ở Ghép — shared apartment billing
 
-A lightweight apartment billing app with a black-and-white Uber Bold Transit landing. All user-facing text in English; no public repository links in website navigation or footer.
+A lightweight apartment billing app with a black-and-white Uber Bold Transit interface, Vietnamese/English translations, and no public repository links in website navigation or footer.
 
 ## URLs and deployment
 
 Production: https://oghep.pages.dev/
 
-The production website is deployed to Cloudflare Pages through Direct Upload, **not** automatically on GitHub push. From the repository root, with the Cloudflare account signed in:
+Cloudflare Pages project: `oghep`, **Direct Upload** (the existing project is retained).
 
-    export CLOUDFLARE_ACCOUNT_ID=37f44fbbb3a0e19e54a87ffa70802fb2
-    npx wrangler pages deploy . --project-name oghep --branch main
+### GitHub Actions CI/CD
 
-The equivalent Windows CMD environment assignment is set "CLOUDFLARE_ACCOUNT_ID=...".
+The repository uses [`.github/workflows/unified-billing-tests.yml`](.github/workflows/unified-billing-tests.yml) to:
+
+1. On pull requests: check JavaScript syntax and run the billing regression tests; **never deploy a PR**.
+2. On pushes to `main`: run the same tests, then build a clean `dist/` directory containing only public site files (`index.html`, `styles.css`, root `*.mjs`, and `i18n/*.mjs`).
+3. Deploy `dist/` to the existing `oghep` production Pages project using `cloudflare/wrangler-action@v4`.
+4. Publish `deploy-version.json` with the commit SHA, then check `https://oghep.pages.dev/deploy-version.json` to verify the production site serves exactly that revision.
+
+The deployment runs **only after the test job succeeds**. A missing token causes the deploy job to fail clearly; it never silently reports a successful release. Production can also be deployed manually from **Actions → Test and deploy O Ghep → Run workflow** on `main`.
+
+### One-time GitHub secret setup (required before the first automatic deploy)
+
+1. Create a Cloudflare API token under [Cloudflare → API Tokens](https://dash.cloudflare.com/profile/api-tokens). Restrict the token to **Account → Cloudflare Pages → Edit** for the account that owns `oghep`. Do not share the token in chats or commit it to Git.
+2. Open [GitHub → repository Actions secrets](https://github.com/TanBuiDev/roommate-bill-split/settings/secrets/actions). Choose **New repository secret**, set the name to **`CLOUDFLARE_API_TOKEN`**, and paste the token as its value.
+3. In the [Actions tab](https://github.com/TanBuiDev/roommate-bill-split/actions/workflows/unified-billing-tests.yml), re-run the failed deployment job, or use **Run workflow** on `main` to publish immediately.
+
+The Cloudflare Account ID is a non-secret project identifier stored in the workflow, so no `CLOUDFLARE_ACCOUNT_ID` secret is required. The workflow uses the repository-provided `GITHUB_TOKEN` to report deployment status, and it does not require Supabase service-role credentials.
+
+**Do not** create a second Cloudflare Pages project or change the existing production project to Git integration. This setup retains the Direct Upload deployment model.
 
 ## Application structure
 
@@ -114,7 +130,7 @@ The application uses `confirmAction({title, message, confirmText, cancelText, to
 - Current editable draft is cached in sessionStorage per apartment and month. Explicitly copying a previous period clears the copied amounts, preserving only fee names and sharing rules.
 - The shared Residents & days board remains available for selecting 1–4 weeks, custom days and Full period. The new editor's month controls the Full period calendar-day count. Old single-bill editor and its misleading standalone summary are hidden, but historical single-bill records stay readable.
 - The client-side pure module \`unified-billing-core.mjs\` encapsulates selected-item calculation and snapshot conversion. Test suite: \`node --test tests/unified-billing.test.mjs\`.
-- **Deployment:** Cloudflare Pages remains Direct Upload. GitHub commits do not deploy automatically; after merging and testing, deploy the repository root with \`npx wrangler pages deploy . --project-name oghep --branch main\` using authorized Cloudflare credentials.
+- **Deployment:** Cloudflare Pages remains Direct Upload. After one-time GitHub secret configuration, pushes to `main` automatically test and deploy a clean static artifact through GitHub Actions. GitHub commits are not deployed automatically until the Cloudflare Pages API token is available.
 
 ## Reusable multi-fee templates and billing periods (legacy implementation)
 
