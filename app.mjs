@@ -614,6 +614,7 @@ function renderGate(){
  label("#invitation-message",t("Accept this invitation after signing in with the invited email address."));
 }
 function showGate(){
+ stopApartmentWatch();
  state.apt=null;state.owner=false;
  show("#apartment-gate",true);show("#apartment-app",false);renderGate();
 }
@@ -667,9 +668,74 @@ async function loadUser(user,force=false,preferred=null){
  loadingUser=work;
  try{await work}finally{if(loadingUser===work)loadingUser=null}
 }
-async function loadApartment(id){
+
+/* Live database updates; realtime notifications plus a conservative polling fallback.
+   Background refreshes preserve draft amount, month and days being edited. */
+let watchedApartment=null;
+let apartmentChannel=null;
+let apartmentPoller=null;
+let apartmentRefreshTimer=null;
+let apartmentRefreshBusy=false;
+let apartmentRefreshAgain=false;
+function stopApartmentWatch(){
+ if(apartmentRefreshTimer){clearTimeout(apartmentRefreshTimer);apartmentRefreshTimer=null}
+ if(apartmentPoller){clearInterval(apartmentPoller);apartmentPoller=null}
+ if(apartmentChannel){db.removeChannel(apartmentChannel);apartmentChannel=null}
+ watchedApartment=null;
+ apartmentRefreshAgain=false;
+}
+function watchApartment(id){
+ if(watchedApartment===id)return;
+ stopApartmentWatch();
+ watchedApartment=id;
+ const onChange=()=>scheduleApartmentRefresh(450);
+ let channel=db.channel("oghep-household:"+id);
+ for(const table of ["apartment_allocations","apartment_bills","apartment_residents","apartment_members","apartment_invitations"]){
+  // RLS restricts changes to data belonging to the signed-in apartment member.
+  channel=channel.on("postgres_changes",{event:"*",schema:"public",table},onChange);
+ }
+ apartmentChannel=channel.subscribe(status=>{
+  if(status==="SUBSCRIBED")scheduleApartmentRefresh(400);
+ });
+ apartmentPoller=setInterval(()=>{
+  if(document.visibilityState!=="hidden")scheduleApartmentRefresh(400);
+ },20000);
+}
+function scheduleApartmentRefresh(delay=400){
+ if(!state.user||!watchedApartment||state.apt?.id!==watchedApartment)return;
+ clearTimeout(apartmentRefreshTimer);
+ apartmentRefreshTimer=setTimeout(async()=>{
+  apartmentRefreshTimer=null;
+  if(!state.user||state.apt?.id!==watchedApartment)return;
+  const editingResident=!!document.activeElement?.closest?.("#members");
+  if(state.billSaving||state.dirty.size||bulkDialogBusy||memberDialogBusy||editingResident){
+   scheduleApartmentRefresh(1000);
+   return;
+  }
+  if(apartmentRefreshBusy){apartmentRefreshAgain=true;return}
+  apartmentRefreshBusy=true;
+  const id=watchedApartment;
+  try{
+   await loadApartment(id,{preserveDraft:true,background:true});
+  }catch(err){console.warn("Apartment refresh deferred",err)}
+  finally{
+   apartmentRefreshBusy=false;
+   if(apartmentRefreshAgain){
+    apartmentRefreshAgain=false;
+    scheduleApartmentRefresh(500);
+   }
+  }
+ },delay);
+}
+document.addEventListener("visibilitychange",()=>{
+ if(document.visibilityState==="visible")scheduleApartmentRefresh(200);
+});
+window.addEventListener("focus",()=>scheduleApartmentRefresh(400));
+
+async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
+ const isNewApartment=state.apt?.id!==id;
  const seq=++state.aptSeq;
  state.apt=a;state.owner=a.owner_id===state.user?.id;
  localStorage.setItem("oghep-active:"+state.user.id,a.id);
@@ -681,12 +747,12 @@ async function loadApartment(id){
  ]);
  if(seq!==state.aptSeq)return;
  const err=r.error||m.error||b.error||i.error;
- if(err)return errorNotice("Could not load apartment data.",err);
+ if(err){errorNotice("Could not load apartment data.",err);return false}
  state.residents=r.data||[];state.members=m.data||[];state.bills=b.data||[];
  state.invitations=i.data||[];state.alloc={};
  if(state.bills.length){
   const {data,error}=await db.from("apartment_allocations").select("id,bill_id,resident_id,resident_name,days,share,mode,custom_days,status").in("bill_id",state.bills.map(x=>x.id));
-  if(error)return errorNotice("Could not load bill allocations.",error);
+  if(error){errorNotice("Could not load bill allocations.",error);return false}
   for(const item of data||[]){(state.alloc[item.bill_id]??=[]).push(item)}
  }
  if(seq!==state.aptSeq)return;
@@ -697,8 +763,10 @@ async function loadApartment(id){
  show("#apartment-gate",false);show("#apartment-app",true);
  show("#owner-panel",state.owner);
  for(const id of ["#bill-details-panel","#residents-panel","#summary-panel"])show(id,state.owner);
- if(state.owner)blankDraft();
+ if(state.owner&&(isNewApartment||options.resetDraft))blankDraft();
  renderResidentTable();renderHistory();
+ watchApartment(id);
+ return true;
 }
 
 function renderHistory(){
@@ -886,6 +954,7 @@ async function login(e){
  }
 }
 function signOutView(){
+ stopApartmentWatch();
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
  state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
  state.authStatus="";label("#authmsg","");
@@ -975,6 +1044,20 @@ for(const input of ["#period-start","#period-end"]){
 $("#copy").addEventListener("click",copyBreakdown);
 $("#share").addEventListener("click",shareBreakdown);
 $("#save").addEventListener("click",saveBill);
+$("#refresh-history").addEventListener("click",async()=>{
+ if(!state.apt||!state.user)return;
+ const button=$("#refresh-history"),id=state.apt.id;
+ button.disabled=true;
+ try{
+  clearTimeout(state.writeTimer);
+  savePendingResidents();
+  await state.writeChain;
+  const ok=await loadApartment(id,{preserveDraft:true});
+  if(ok)toast("Updated just now.");
+ }catch(err){errorNotice("Unable to refresh. Check your connection.",err)}
+ finally{button.disabled=false}
+});
+
 db.auth.onAuthStateChange((event,session)=>{
  if(event==="SIGNED_OUT"){signOutView();return}
  if(event==="SIGNED_IN"&&session?.user)queueMicrotask(()=>loadUser(session.user));
