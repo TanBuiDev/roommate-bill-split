@@ -88,17 +88,17 @@ function renderMoney(){
 }
 function renderResult(){
  const p=billingPeriod();
- label("#period-days-note",p.valid?p.days+" calendar/billing days":"Check the date range");
- label("#period-label",state.draft.month.slice(5)+"/"+state.draft.month.slice(0,4)+" · "+p.days+" days");
+ label("#period-days-note",p.valid?t("{count} calendar/billing days",{count:p.days}):t("Check the date range"));
+ label("#period-label",state.draft.month.slice(5)+"/"+state.draft.month.slice(0,4)+" · "+t("{count} days",{count:p.days}));
  label("#total",money(state.draft.amount));
- label("#people-label",state.residents.length+" residents");
+ label("#people-label",t("{count} residents",{count:state.residents.length}));
  const r=split()||[], map=new Map(r.map(x=>[x.id,x]));
  label("#allocated",money(r.reduce((a,b)=>a+b.share,0)));
  for(const resident of state.residents){
   const share=$("#members").querySelector('[data-share-id="'+resident.id+'"]');
   const days=$("#members").querySelector('[data-days-id="'+resident.id+'"]');
   if(share)share.textContent=money(map.get(resident.id)?.share||0);
-  if(days)days.textContent=occupiedDays(resident)+" days";
+  if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
  }
  label("#validation",validateBill());
  $("#save").disabled=!!validateBill();
@@ -133,26 +133,26 @@ function changedResident(p){
 }
 function renderResidentTable(){
  const body=$("#members");body.replaceChildren();
- label("#member-count",state.residents.length+" residents");
+ label("#member-count",t("{count} residents",{count:state.residents.length}));
  for(const [index,p] of state.residents.entries()){
   const row=el("tr"),cell=el("td");
   const name=el("input","member-name");name.value=p.name;name.maxLength=70;name.disabled=!state.owner;
-  name.setAttribute("aria-label","Resident "+(index+1));
+  name.setAttribute("aria-label",t("Resident")+" "+(index+1));
   name.addEventListener("input",()=>{p.name=name.value;changedResident(p)});
-  name.addEventListener("blur",()=>{if(!p.name.trim()){p.name="Resident "+(index+1);name.value=p.name;changedResident(p)}});
+  name.addEventListener("blur",()=>{if(!p.name.trim()){p.name=t("Resident")+" "+(index+1);name.value=p.name;changedResident(p)}});
   cell.append(name);row.append(cell);
   for(let week=1;week<=4;week++){
-   const td=el("td"),code="w"+week,btn=el("button","week-choice"+(p.mode===code?" active":""),week+" wk");
+   const td=el("td"),code="w"+week,btn=el("button","week-choice"+(p.mode===code?" active":""),t("{count} wk",{count:week}));
    btn.type="button";btn.disabled=!state.owner;btn.setAttribute("aria-pressed",String(p.mode===code));
-   btn.setAttribute("aria-label",p.name+": "+week+" weeks");
+   btn.setAttribute("aria-label",p.name+": "+t("{count} weeks",{count:week}));
    btn.addEventListener("click",()=>{p.mode=code;changedResident(p);renderResidentTable()});
    td.append(btn);row.append(td);
   }
   const td=el("td"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));
   input.type="number";input.min="0";input.max=String(billingPeriod().days);input.inputMode="numeric";
-  input.placeholder="Days";input.disabled=!state.owner;
+  input.placeholder=t("Days");input.disabled=!state.owner;
   input.value=p.mode==="custom"?String(p.custom_days):"";
-  input.setAttribute("aria-label",p.name+": custom days");
+  input.setAttribute("aria-label",p.name+": "+t("Custom days"));
   input.addEventListener("focus",()=>{
    if(p.mode!=="custom"){
     p.custom_days=occupiedDays(p);p.mode="custom";input.value=String(p.custom_days);
@@ -165,10 +165,10 @@ function renderResidentTable(){
   input.addEventListener("change",()=>{input.value=String(p.custom_days)});
   td.append(input);row.append(td);
   const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days",t("0 days"));
-  val.dataset.shareId=p.id;hint.dataset.daysId=p.id;shareTd.append(val,hint);row.append(shareTd);
+  val.dataset.shareId=p.id;hint.dataset.daysId=p.id;hint.textContent=t("0 days");shareTd.append(val,hint);row.append(shareTd);
   const delTd=el("td");
   if(state.owner){
-   const del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label","Remove "+p.name);
+   const del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label",t("Remove {name}",{name:p.name}));
    del.addEventListener("click",()=>removeResident(p));delTd.append(del);
   }
   row.append(delTd);body.append(row);
@@ -182,7 +182,7 @@ async function removeResident(p){
  if(!state.owner)return;
  const confirmed=await confirmAction({
   title:"Remove resident?",
-  message:"Remove "+p.name+" from this apartment? Saved bill snapshots will remain intact.",
+  message:t("Remove {name} from this apartment? Saved bill snapshots will remain intact.",{name:p.name}),
   confirmText:"Remove resident",
   cancelText:"Keep resident",
   tone:"danger"
@@ -217,7 +217,7 @@ function renderAccess(){
   const r=state.residents.find(x=>x.user_id===m.user_id);
   const known=state.invitations.find(x=>x.accepted_by===m.user_id);
   const line=el("div","access-item");
-  line.append(el("span",null,(m.role==="owner"?"You (owner)":r?.name||known?.invited_email||"Linked member")+" · "+m.role));
+  line.append(el("span",null,(m.role==="owner"?t("You (owner)"):r?.name||known?.invited_email||t("Linked member"))+" · "+t(m.role==="owner"?"Owner":"Member")));
   if(m.role!=="owner"){
    const remove=el("button","mini",t("Remove access"));
    remove.addEventListener("click",async()=>{
@@ -241,7 +241,7 @@ function renderAccess(){
  if(!pending.length)invites.append(el("p","muted",t("No pending invitations.")));
  for(const invitation of pending){
   const line=el("div","access-item");
-  line.append(el("span",null,invitation.invited_email+" · expires "+new Date(invitation.expires_at).toLocaleDateString("en-GB")));
+  line.append(el("span",null,invitation.invited_email+" · "+t("expires {date}",{date:new Date(invitation.expires_at).toLocaleDateString(getLocale())})));
   const revoke=el("button","mini",t("Revoke"));
   revoke.addEventListener("click",async()=>{
    const confirmed=await confirmAction({
@@ -335,7 +335,7 @@ async function acceptInvite(){
   if(error)throw error;
   sessionStorage.removeItem("oghep-invite");
   await loadUser(state.user,true,data.apartment_id);
-  toast("You joined "+data.name+".");
+  toast(t("You joined {name}.",{name:data.name}));
  }catch(err){errorNotice("Could not accept: sign in with the invited email, or ask for a fresh invitation.",err)}
  finally{button.disabled=false}
 }
@@ -386,7 +386,7 @@ async function loadApartment(id){
  }
  if(seq!==state.aptSeq)return;
  label("#apartment-name",a.name);label("#apartment-code",a.code);
- label("#apartment-role",state.owner?"Owner":"Member");
+ label("#apartment-role",t(state.owner?"Owner":"Member"));
  label("#dashboard-title",a.name);
  renderAptOptions();
  show("#apartment-gate",false);show("#apartment-app",true);
@@ -398,16 +398,16 @@ async function loadApartment(id){
 
 function renderHistory(){
  const root=$("#history");root.replaceChildren();
- label("#history-count",state.bills.length+" periods");
+ label("#history-count",t("{count} periods",{count:state.bills.length}));
  if(!state.bills.length){root.append(el("p","muted",t("No saved bills yet.")));return}
  for(const bill of state.bills){
   const allocations=state.alloc[bill.id]||[];
   const panel=el("article","bill"),line=el("div","bill-line"),desc=el("div","bill-desc");
-  desc.append(el("strong",null,(types[bill.bill_type]||"Bill")+" · "+bill.bill_month.slice(5)+"/"+bill.bill_month.slice(0,4)));
-  desc.append(el("small",null,allocations.length+" residents · "+bill.billing_days+" days"));
+  desc.append(el("strong",null,typeName(bill.bill_type)+" · "+bill.bill_month.slice(5)+"/"+bill.bill_month.slice(0,4)));
+  desc.append(el("small",null,t("{count} residents · {days} days",{count:allocations.length,days:bill.billing_days})));
   line.append(desc,el("strong","bill-money",money(bill.amount)));panel.append(line);
   const actions=el("div","bill-actions");
-  const toggle=el("button","mini",state.shown.has(bill.id)?"Hide details":"Details");
+  const toggle=el("button","mini",t(state.shown.has(bill.id)?"Hide details":"Details"));
   toggle.addEventListener("click",()=>{state.shown.has(bill.id)?state.shown.delete(bill.id):state.shown.add(bill.id);renderHistory()});
   actions.append(toggle);
   if(state.owner){
@@ -421,10 +421,10 @@ function renderHistory(){
    const detail=el("div","bill-detail");
    for(const item of allocations){
     const row=el("div","paid-row"),left=el("div"),right=el("div","payment-actions");
-    left.append(el("strong",null,item.resident_name+" · "+item.days+" days"));
+    left.append(el("strong",null,item.resident_name+" · "+t("{count} days",{count:item.days})));
     left.append(el("small","payment-amount",money(item.share)));
     const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
-    right.append(el("span","payment-badge "+item.status,statuses[item.status]||"Unpaid"));
+    right.append(el("span","payment-badge "+item.status,t(statuses[item.status]||"Unpaid")));
     if(state.owner&&item.status==="submitted"){
      const confirm=el("button","mini",t("Confirm receipt"));
      confirm.addEventListener("click",async()=>{
@@ -514,17 +514,17 @@ async function clipboard(data,message){
 }
 function copyBreakdown(){
  const parts=split();if(!parts)return;
- const lines=[types[state.draft.type]+" — "+state.draft.month,
-  "Apartment: "+state.apt.name,"Total: "+money(state.draft.amount),
-  "Period: "+billingPeriod().days+" days","",
-  ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+p.days+" days: "+money(p.share)),
-  "","TOTAL: "+money(parts.reduce((s,p)=>s+p.share,0))];
+ const lines=[typeName(state.draft.type)+" — "+state.draft.month,
+  t("Apartment")+": "+state.apt.name,t("Total")+": "+money(state.draft.amount),
+  t("Period")+": "+t("{count} days",{count:billingPeriod().days}),"",
+  ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+t("{count} days",{count:p.days})+": "+money(p.share)),
+  "",t("TOTAL")+": "+money(parts.reduce((s,p)=>s+p.share,0))];
  clipboard(lines.join("\n"),"Breakdown copied.");
 }
 function refreshLogin(){
  const remain=Math.max(0,Math.ceil((state.loginUntil-Date.now())/1000));
  const btn=$("#login-button");btn.disabled=state.loginBusy||remain>0;
- btn.textContent=state.loginBusy?"Sending...":remain>0?"Try again in "+Math.ceil(remain/60)+" min":"Email me a sign-in link";
+ btn.textContent=state.loginBusy?t("Sending..."):remain>0?t("Try again in {minutes} min",{minutes:Math.ceil(remain/60)}):t("Email me a sign-in link");
  if(remain===0&&state.loginUntil){state.loginUntil=0;localStorage.removeItem("oghep-login-backoff-v1")}
 }
 setInterval(refreshLogin,1000);
