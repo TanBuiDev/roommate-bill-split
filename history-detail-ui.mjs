@@ -1,5 +1,6 @@
 /* A single, accessible payment-detail dialog shared by legacy and monthly history. */
 let dialog=null;
+let menuDismissInstalled=false;
 
 function createDialog(){
  const root=document.createElement("dialog");
@@ -60,8 +61,13 @@ export function historyMenu(items,label="More options"){
  }
  menu.append(options);
  menu.addEventListener("keydown",e=>{if(e.key==="Escape"){menu.open=false;summary.focus();e.stopPropagation()}});
- document.addEventListener("click",e=>{if(menu.open&&!menu.contains(e.target))menu.open=false},{signal:(()=>{const ctrl=new AbortController(); // removed when detached by caller's DOM update
-  const observer=new MutationObserver(()=>{if(!menu.isConnected){observer.disconnect();ctrl.abort()}});
-  observer.observe(document.body,{childList:true,subtree:true});return ctrl.signal})()});
+ if(!menuDismissInstalled){
+  document.addEventListener("click",event=>{
+   for(const active of document.querySelectorAll(".history-more[open]")){
+    if(!active.contains(event.target))active.open=false;
+   }
+  });
+  menuDismissInstalled=true;
+ }
  return menu;
 }
