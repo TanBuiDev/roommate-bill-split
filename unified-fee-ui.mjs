@@ -166,7 +166,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   el("ub-delete-type").addEventListener("click",deleteType);
   el("ub-type-cancel").addEventListener("click",()=>dialog.close());
   dialog.addEventListener("cancel",e=>{if(pending)e.preventDefault()});
-  el("ub-add-subfee").addEventListener("click",()=>{if(newType.fees.length<12){newType.fees.push({name:"",method:"days"});renderNewTypeLines()}});
+  el("ub-add-subfee").addEventListener("click",()=>{if(newType.fees.length<12){newType.fees.push({name:"",method:el("ub-new-method").value});renderNewTypeLines()}});
   el("ub-type-save").addEventListener("click",saveType);
   el("ub-new-name").addEventListener("input",e=>{newType.name=e.target.value;el("ub-type-error").textContent=""});
   el("ub-new-method").addEventListener("change",e=>{newType.fees.forEach(f=>f.method=e.target.value)});
@@ -513,7 +513,9 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   newType={name:source?.name||"",fees:source?(source.definition||[]).map(x=>({name:x.name,method:x.method||"days"})):[{name:"",method:"days"}]};
   el("ub-dialog-heading").textContent=t(source?"Edit custom bill type":"Create custom bill type");
   el("ub-new-name").value=newType.name;
-  el("ub-new-method").value=newType.fees[0]?.method||"days";
+  const selectedMethod=newType.fees[0]?.method||"days";
+  newType.fees.forEach(f=>f.method=selectedMethod);
+  el("ub-new-method").value=selectedMethod;
   el("ub-type-error").textContent="";
   renderNewTypeLines();
   el("ub-type-dialog").showModal();
