@@ -53,7 +53,8 @@ function billingPeriod(){
  const currentPeriodMonth=document.body.classList.contains("legacy-edit-active")?state.draft.month:(feeUI.getMonth?.()||state.draft.month);
  const [year,month]=String(currentPeriodMonth).split("-").map(Number);
  const defaultDays=year>=1900&&year<=2100&&month>=1&&month<=12?new Date(year,month,0).getDate():30;
- const start=state.draft.start,end=state.draft.end;
+ const legacyDates=document.body.classList.contains("legacy-edit-active");
+ const start=legacyDates?state.draft.start:null,end=legacyDates?state.draft.end:null;
  if(!start&&!end)return {valid:true,days:defaultDays,start:null,end:null};
  if(!start||!end)return {valid:false,days:defaultDays,error:"Provide both start and end dates."};
  const a=Date.parse(start+"T00:00:00Z"),b=Date.parse(end+"T00:00:00Z");
@@ -768,6 +769,7 @@ async function loadApartment(id,options={}){
  if(state.owner&&(isNewApartment||options.resetDraft))blankDraft();
  renderResidentTable();renderHistory();
  await feeUI.load(id,state.owner,state.residents);
+ if(seq===state.aptSeq)dashboardLayout.syncDaySummary(state.residents.length,billingPeriod().days);
  return true;
 }
 
