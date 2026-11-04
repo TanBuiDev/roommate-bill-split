@@ -68,7 +68,15 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 - Optional meter-reading start and end dates override month length (inclusive date range).
 - Residents can select 1, 2, 3 or 4 weeks (7/14/21/28 days) or custom number of days; a new resident defaults to 4 weeks (28 days).
 - Money is allocated with integer arithmetic and largest remainder rounding so all shares sum exactly to the original bill.
-- Bills are stored atomically in a single database function. Payment status is preserved when overwriting a matching bill.
+- Bills are stored atomically in a single database function. **Overwriting a matching bill resets every participant's payment status to `unpaid`**, since previous payment confirmations must not silently carry over to recalculated amounts. The owner sees this warning before confirming. Migration changes future saves only; it does not retroactively alter historical statuses.
+
+## Saved bill exports and mobile usability
+
+- Saved electricity/water/internet/other bills have their own **Copy bill / Share bill** actions in history. The content is generated from saved allocations, including resident names, days and exact amounts, **not** today's editable roster or reset inputs.
+- When a new bill is saved and the editing form is cleared, the top **Copy / Share** actions stay available by selecting the latest saved bill (prefer the just-saved record), with a clearly visible label showing which saved bill will be shared.
+- Multi-fee apartment periods also expose **Copy bill / Share bill** actions in their saved history.
+- Mobile screens use a two-column layout for Copy / Share and a full-width Save button. History controls use a responsive grid and compact, readable status rows. Resident card captions are translated using actual DOM text rather than hardcoded CSS pseudo-content.
+- The Web Share API is used when supported; clipboard copying falls back to a selected-text copy on embedded browsers when possible.
 
 ## Shared modal
 
