@@ -101,7 +101,6 @@ function renderMoney(){
 }
 function renderResult(){
  const p=billingPeriod();
- label("#period-days-note",p.valid?t("{count} calendar/billing days",{count:p.days}):t("Check the date range"));
  label("#period-label",state.draft.month.slice(5)+"/"+state.draft.month.slice(0,4)+" · "+t("{count} days",{count:p.days}));
  label("#total",money(state.draft.amount));
  label("#people-label",t("{count} residents",{count:state.residents.length}));
