@@ -455,6 +455,7 @@ export const vi = {
   "Copied. Review amounts and people before saving.": "Đã sao chép. Hãy kiểm tra lại số tiền và người áp dụng trước khi lưu.",
   "Review your allocations": "Kiểm tra số tiền phân bổ",
   "Fee breakdown by resident": "Chi tiết theo người",
-  "No eligible residents yet.": "Chưa có người cần thanh toán."
+  "No eligible residents yet.": "Chưa có người cần thanh toán.",
+  "View fee details": "Xem chi tiết từng khoản"
 };
 export const en = Object.freeze({});
