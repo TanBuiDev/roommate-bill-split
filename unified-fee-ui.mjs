@@ -153,7 +153,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(caption)caption.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const legacy=el("fee-history")?.closest(".fee-history-wrap");
   if(legacy){
-   const h=legacy.querySelector("h4");if(h)h.textContent=t("Saved monthly settlements");
+   const h=legacy.querySelector("h4");if(h)h.textContent=t("Monthly settlements");
    const p=legacy.querySelector(".fee-history-head p");if(p)p.textContent=t("Saved periods and payment progress.");
   }
   el("ub-type").addEventListener("change",e=>{selectedType=e.target.value;refreshTypeActions()});
@@ -564,7 +564,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   el("fee-title").textContent=t("Calculate monthly bills");
   const desc=el("fee-title").nextElementSibling;if(desc)desc.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const head=el("fee-history")?.closest(".fee-history-wrap")?.querySelector("h4");
-  if(head)head.textContent=t("Saved monthly settlements");
+  if(head)head.textContent=t("Monthly settlements");
   const hdesc=el("fee-history")?.closest(".fee-history-wrap")?.querySelector(".fee-history-head p");
   if(hdesc)hdesc.textContent=t("Saved periods and payment progress.");
   const options=el("ub-new-method").options;
