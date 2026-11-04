@@ -23,13 +23,14 @@ const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMo
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
  shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
- loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0)};
+ loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:""};
 let toastTimer=0;
 function toast(message){
  const element=$("#toast");element.textContent=t(message);element.classList.add("show");
  clearTimeout(toastTimer);toastTimer=setTimeout(()=>element.classList.remove("show"),3800);
 }
 function errorNotice(message,error){if(error)console.error(message,error);toast(message)}
+function authMessage(message){state.authStatus=message;label("#authmsg",t(message))}
 const isOwner=()=>state.owner;
 const currentAptKey=()=>("oghep-active:"+state.user.id);
 function billingPeriod(){
@@ -531,19 +532,19 @@ setInterval(refreshLogin,1000);
 async function login(e){
  e.preventDefault();if(state.loginBusy||Date.now()<state.loginUntil)return;
  const email=$("#email").value.trim();if(!email)return;
- state.loginBusy=true;refreshLogin();label("#authmsg",t("Sending a sign-in link..."));
+ state.loginBusy=true;refreshLogin();authMessage("Sending a sign-in link...");
  try{
   const pending=sessionStorage.getItem("oghep-invite");
   const redirect=pending?SITE+"/?invite="+pending:SITE+"/";
   const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:redirect}});
   if(error)throw error;
   state.loginUntil=Date.now()+60000;
-  label("#authmsg",t("Check your inbox and spam folder for the sign-in link."));
+  authMessage("Check your inbox and spam folder for the sign-in link.");
  }catch(err){
   if(err?.status===429||String(err?.code||"").includes("rate_limit")){
    state.loginUntil=Date.now()+30*60000;
-   label("#authmsg",t("Email sending is temporarily limited. Please try again in 30–60 minutes."));
-  }else{label("#authmsg",t("Could not send the sign-in link. Please try again."));console.error(err)}
+   authMessage("Email sending is temporarily limited. Please try again in 30–60 minutes.");
+  }else{authMessage("Could not send the sign-in link. Please try again.");console.error(err)}
  }finally{
   if(state.loginUntil)localStorage.setItem("oghep-login-backoff-v1",String(state.loginUntil));
   state.loginBusy=false;refreshLogin();
@@ -552,6 +553,7 @@ async function login(e){
 function signOutView(){
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
  state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
+ state.authStatus="";label("#authmsg","");
  show("#loading",false);show("#auth",true);show("#workspace",false);show("#signout",false);
  label("#sync-chip",t("Signed out"));$("#sync-chip").classList.remove("connected");
 }
@@ -559,6 +561,7 @@ function signOutView(){
 $("#lang-vi").addEventListener("click",()=>setLanguage("vi"));
 $("#lang-en").addEventListener("click",()=>setLanguage("en"));
 onLanguageChange(()=>{
+ if(state.authStatus)label("#authmsg",t(state.authStatus));
  const status=state.user?"Connected":"Signed out";
  label("#sync-chip",t(status));
  refreshLogin();
