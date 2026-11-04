@@ -140,7 +140,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     <button id="ub-copy-result" class="button secondary" type="button" title="Copy bill as message" aria-label="Copy bill as message"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-result-label" class="sr-only">Copy bill as message</span></button>
     <button id="ub-share" class="button secondary" type="button" title="Share breakdown" aria-label="Share breakdown"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.3 11 7.4-4.7m-7.4 6.7 7.4 4.7"/></svg><span id="ub-share-label" class="sr-only">Share breakdown</span></button>
    </div>
-   <p class="data-note" id="ub-info">Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses.</p>
+   <p class="data-note" id="ub-info">Replacing a saved billing period resets its payment statuses.</p>
   </section>
   <dialog id="ub-type-dialog" class="og-modal ub-type-dialog" aria-labelledby="ub-dialog-heading">
    <div class="og-modal__content">
@@ -398,10 +398,13 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     people.append(line);
    }
   }else people.append(node("p","fee-hint",t("Choose at least one nonzero bill to view the breakdown.")));
-  el("ub-error").textContent=tooMany?t("Maximum 30 fee items per period."):(result.valid?"":(groups.length?t(result.error):""));
-  el("ub-save").disabled=!active()||!owner||pending||tooMany||!result.valid;
-  el("ub-share").disabled=!result.valid;
-  el("ub-copy-result").disabled=!result.valid;
+  const allocated=result.valid?result.breakdown.reduce((sum,p)=>sum+Number(p.amount||0),0):0;
+  const mismatch=result.valid&&allocated!==totalSelected;
+  el("ub-error").textContent=tooMany?t("Maximum 30 fee items per period."):mismatch?
+   t("Allocated amounts do not match the bill total. Please check the sharing rule."):(result.valid?"":(groups.length?t(result.error):""));
+  el("ub-save").disabled=!active()||!owner||pending||tooMany||!result.valid||mismatch;
+  el("ub-share").disabled=!result.valid||mismatch;
+  el("ub-copy-result").disabled=!result.valid||mismatch;
   refreshTypeActions();
  }
  function renderAll(){
@@ -663,18 +666,22 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!el("ub-heading"))return;
   const keys=[
    ["ub-heading","Billing period"],["ub-caption","Select a month to calculate the full billing period."],
-   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add-label","Add bill"],["ub-modal-heading","Add bill"],["ub-modal-close","Close"],
+   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add-label","Add bill"],["ub-modal-heading","Add bill"],
    ["ub-new-type","+ Create custom bill type"],["ub-edit-type","Edit custom type"],["ub-delete-type","Delete custom type"],
    ["ub-cancel","Cancel"],["ub-form-total-label","Bill subtotal"],
    ["ub-summary-title","Bills in this period"],["ub-empty","No bills yet. Choose a bill type above to begin."],
    ["ub-selected-label","Total amount"],
    ["ub-people-heading","Per-resident breakdown"],["ub-copy-last-label","Use last month's template"],
    ["ub-share-label","Share breakdown"],["ub-save-label","Save monthly settlement"],["ub-copy-result-label","Copy bill as message"],
-   ["ub-info","Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses."],
+   ["ub-info","Replacing a saved billing period resets its payment statuses."],
    ["ub-name-label","Bill type name"],["ub-subfee-label","Included fee items"],["ub-method-label","Default sharing rule"],
    ["ub-add-subfee","+ Add subfee"],["ub-type-cancel","Close"],["ub-type-save","Save bill type"]
   ];
   for(const [id,key] of keys){const e=el(id);if(e)e.textContent=t(key)}
+  el("ub-modal-close").setAttribute("aria-label",t("Close"));
+  for(const [id,key] of [["ub-save","Save monthly settlement"],["ub-copy-result","Copy bill as message"],["ub-share","Share breakdown"]]){
+   const e=el(id);if(e){e.setAttribute("aria-label",t(key));e.setAttribute("title",t(key))}
+  }
   el("fee-title").textContent=t("Calculate monthly bills");
   const desc=el("fee-title").nextElementSibling;if(desc)desc.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const head=el("fee-history")?.closest(".fee-history-wrap")?.querySelector("h4");
