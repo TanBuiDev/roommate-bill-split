@@ -52,7 +52,7 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 6. Members can view shared bill history and report **their own** payments. The owner confirms receipt; a member cannot independently mark themselves as paid/received.
 7. Apartment owners can remove member access and revoke pending invites.
 
-## Live updates, sharing and batch onboarding
+## Manual synchronization, sharing and batch onboarding
 
 - **Manual synchronization only.** The application fetches apartment data when the user signs in, selects an apartment, performs an explicit action, presses **Refresh**, or reloads the page. No realtime WebSocket subscription, background polling, tab-focus fetch, or timed sync is active.
 - Manual **Refresh** preserves the current bill type, month, amount and actual meter-reading dates. Pending resident edits are saved first. Updates made on another device remain unseen until an explicit refresh or page reload.
