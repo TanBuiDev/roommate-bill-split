@@ -36,13 +36,15 @@ export function installDashboardLayout({t}){
 
  const billHeader=create("div","bill-stage-heading","bill-add-heading");
  billHeader.append(txt("h4",null,null,"B. Bills for this month"),
-   txt("p",null,null,"Select a category, enter its charges, then add it to the list."));
- editor.insertBefore(billHeader,billAdd);
+   txt("p",null,null,"Manage bills and their charges for the selected month."));
+ billHeader.append(billAdd);
+ editor.insertBefore(billHeader,billSummary);
 
+ const totalCard=create("section","bill-summary-card","bill-summary-card");
  const totalHeader=create("div","bill-stage-heading","bill-total-heading");
- totalHeader.append(txt("h4",null,null,"C. Totals and allocations"),
-   txt("p",null,null,"Only checked bills count toward each resident's share."));
- editor.insertBefore(totalHeader,billSummary);
+ totalHeader.append(txt("h4",null,null,"C. Totals and allocations"));
+ editor.insertBefore(totalCard,billSummary);
+ totalCard.append(totalHeader,billSummary);
 
  const currentHistory=fee.querySelector(".fee-history-wrap");
  const oldHistory=document.querySelector(".history-panel");

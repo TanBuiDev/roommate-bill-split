@@ -1,5 +1,6 @@
 import { METHODS } from "./fee-engine.mjs";
 import { calculateSelection, serializeSelection, hydrateSelection, getGroupMethod, applyGroupRule } from "./unified-billing-core.mjs";
+import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
 
 /* Unified monthly billing editor. All mutations are explicit user actions. */
 const BUILTINS = [
@@ -29,7 +30,7 @@ const uuid=()=>crypto.randomUUID();
 
 export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmAction,nowMonth,onSaved,onMonthChange,onHistoryChanged}){
  let apt=null,owner=false,residents=[],periods=[],templates=[],payments=[];
- let month=nowMonth(),groups=[],selectedType="electric",editing=null,dirty=false,pending=false,loaded=false;
+ let month=nowMonth(),groups=[],selectedType="electric",editing=null,workingGroup=null,originalWorking="",dirty=false,pending=false,loaded=false;
  let reloadSaved=false,shown=new Set(),newType={name:"",fees:[{name:"",method:"days"}]},typeBeingEdited=null;
  const active=()=>apt&&getContext().apt?.id===apt;
  const countFees=()=>groups.reduce((n,g)=>n+g.fees.length,0);
@@ -94,39 +95,52 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     <button id="ub-copy-last" class="button secondary ub-copy-previous" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-last-label">Use last month's template</span></button>
    </div></div>
   <div class="ub-add-row">
-   <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
-   <button type="button" id="ub-add" class="button primary">Add bill</button>
+   <button type="button" id="ub-add" class="button primary"><span class="ub-add-plus" aria-hidden="true">+</span><span id="ub-add-label">Add bill</span></button>
   </div>
-  <div class="ub-category-actions">
-   <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
-   <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
-   <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
-  </div>
-  <section id="ub-form" class="ub-form hidden" aria-labelledby="ub-form-title">
-   <div class="ub-form-head"><h4 id="ub-form-title">Bill details</h4><button id="ub-cancel" class="mini" type="button">Close</button></div>
-   <div id="ub-form-items"></div>
-   <div class="ub-form-total"><span id="ub-form-total-label">Bill subtotal</span><strong id="ub-form-amount">0 ₫</strong></div>
-   <button type="button" id="ub-done" class="button primary">Add to summary</button>
-  </section>
+  <dialog id="ub-bill-dialog" class="ub-bill-dialog" aria-labelledby="ub-modal-heading">
+   <div class="ub-bill-dialog-inner">
+    <div class="ub-dialog-head">
+     <h3 id="ub-modal-heading">Add bill</h3>
+     <button id="ub-modal-close" class="mini" type="button" aria-label="Close">×</button>
+    </div>
+    <label class="field ub-category"><span id="ub-type-label">Bill type</span><select id="ub-type" class="control"></select></label>
+    <div class="ub-category-actions">
+     <button type="button" id="ub-new-type" class="mini">+ Create custom bill type</button>
+     <button type="button" id="ub-edit-type" class="mini hidden">Edit custom type</button>
+     <button type="button" id="ub-delete-type" class="mini red hidden">Delete custom type</button>
+    </div>
+    <section id="ub-form" class="ub-form hidden" aria-labelledby="ub-form-title">
+     <h4 id="ub-form-title">Bill details</h4>
+     <div id="ub-form-items"></div>
+     <div class="ub-form-total"><span id="ub-form-total-label">Bill subtotal</span><strong id="ub-form-amount">0 ₫</strong></div>
+     <p class="summary-error" id="ub-bill-error" role="alert"></p>
+    </section>
+    <div class="ub-bill-footer">
+     <button id="ub-cancel" class="button secondary" type="button">Cancel</button>
+     <button type="button" id="ub-done" class="button primary">Add to summary</button>
+    </div>
+   </div>
+  </dialog>
   <section class="ub-summary" aria-labelledby="ub-summary-title">
    <div class="ub-summary-head"><h4 id="ub-summary-title">Bills in this period</h4><span id="ub-count" class="tag">0</span></div>
    <p class="muted" id="ub-empty">No bills yet. Choose a bill type above to begin.</p>
    <div id="ub-list" class="ub-list"></div>
-   <div class="ub-summary-total">
-    <div><span id="ub-selected-label">Selected total</span><strong id="ub-total">0 ₫</strong></div>
-    <div><span id="ub-entered-label">All entered bills</span><strong id="ub-entered">0 ₫</strong></div>
-   </div>
    <section class="fee-breakdown" aria-labelledby="ub-people-heading">
-    <h4 id="ub-people-heading">Per-resident breakdown</h4>
+    <div class="ub-breakdown-head">
+     <h4 id="ub-people-heading">Per-resident breakdown</h4>
+     <div class="ub-total-in-breakdown">
+      <span id="ub-selected-label">Total amount</span><strong id="ub-total">0 ₫</strong>
+     </div>
+    </div>
     <div id="ub-people"></div>
    </section>
    <p class="summary-error" id="ub-error" role="alert"></p>
-   <div class="ub-actions">
-    <button id="ub-save" class="button primary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V4M7 21v-8h10v8"/></svg><span id="ub-save-label">Save monthly settlement</span></button>
-    <button id="ub-copy-result" class="button secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-result-label">Copy bill as message</span></button>
-    <button id="ub-share" class="button secondary" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.3 11 7.4-4.7m-7.4 6.7 7.4 4.7"/></svg><span id="ub-share-label">Share breakdown</span></button>
+   <div class="ub-actions" role="group" aria-label="Billing actions">
+    <button id="ub-save" class="button primary" type="button" title="Save monthly settlement" aria-label="Save monthly settlement"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V4M7 21v-8h10v8"/></svg><span id="ub-save-label" class="sr-only">Save monthly settlement</span></button>
+    <button id="ub-copy-result" class="button secondary" type="button" title="Copy bill as message" aria-label="Copy bill as message"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="ub-copy-result-label" class="sr-only">Copy bill as message</span></button>
+    <button id="ub-share" class="button secondary" type="button" title="Share breakdown" aria-label="Share breakdown"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="m8.3 11 7.4-4.7m-7.4 6.7 7.4 4.7"/></svg><span id="ub-share-label" class="sr-only">Share breakdown</span></button>
    </div>
-   <p class="data-note" id="ub-info">Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses.</p>
+   <p class="data-note" id="ub-info">Replacing a saved billing period resets its payment statuses.</p>
   </section>
   <dialog id="ub-type-dialog" class="og-modal ub-type-dialog" aria-labelledby="ub-dialog-heading">
    <div class="og-modal__content">
@@ -149,7 +163,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   pane.innerHTML=html;
   pane.classList.remove("hidden");
   const dialog=el("ub-type-dialog");
-  document.body.append(dialog);
+  const billDialog=el("ub-bill-dialog");
+  document.body.append(dialog,billDialog);
   el("fee-mode-controls").classList.add("hidden");
   el("fee-title").textContent=t("Calculate monthly bills");
   const caption=el("fee-title").nextElementSibling;
@@ -159,8 +174,21 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const h=legacy.querySelector("h4");if(h)h.textContent=t("Monthly settlements");
    const p=legacy.querySelector(".fee-history-head p");if(p)p.textContent=t("Saved periods and payment progress.");
   }
-  el("ub-type").addEventListener("change",e=>{selectedType=e.target.value;refreshTypeActions()});
-  el("ub-add").addEventListener("click",openSelectedType);
+  el("ub-type").addEventListener("change",async e=>{
+   const next=e.target.value,prior=selectedType;
+   if(workingGroup&&JSON.stringify(workingGroup)!==originalWorking){
+    const yes=await confirmAction({title:t("Discard unsaved bill changes?"),message:t("Switching types will discard changes in this open form."),confirmText:t("Switch bill type"),cancelText:t("Continue editing")});
+    if(!yes){e.target.value=prior;return}
+   }
+   selectedType=next;openSelectedType();
+  });
+  el("ub-add").addEventListener("click",()=>{
+   const unused=catalog().find(type=>!groups.some(group=>group.id===type.id));
+   if(unused)selectedType=unused.id;
+   openSelectedType();
+  });
+  el("ub-modal-close").addEventListener("click",cancelBill);
+  billDialog.addEventListener("cancel",e=>{e.preventDefault();cancelBill()});
   el("ub-new-type").addEventListener("click",()=>openTypeDialog());
   el("ub-edit-type").addEventListener("click",()=>openTypeDialog(selectedType));
   el("ub-delete-type").addEventListener("click",deleteType);
@@ -170,8 +198,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   el("ub-type-save").addEventListener("click",saveType);
   el("ub-new-name").addEventListener("input",e=>{newType.name=e.target.value;el("ub-type-error").textContent=""});
   el("ub-new-method").addEventListener("change",e=>{newType.fees.forEach(f=>f.method=e.target.value)});
-  el("ub-cancel").addEventListener("click",()=>{editing=null;renderForm()});
-  el("ub-done").addEventListener("click",()=>{editing=null;store();renderForm();renderSummary()});
+  el("ub-cancel").addEventListener("click",cancelBill);
+  el("ub-done").addEventListener("click",commitBill);
   el("ub-share").addEventListener("click",shareCurrent);
   el("ub-copy-result").addEventListener("click",()=>writeClipboard(summarize()));
   el("ub-copy-last").addEventListener("click",copyPrevious);
@@ -193,17 +221,24 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   return t("{count} charges",{count:g.fees.length})+" · "+money(value);
  };
  function refreshTypeActions(){
-  const isCustom=selectedType.startsWith("custom:");
+  const isCustom=templates.some(x=>"custom:"+x.id===selectedType);
   setVisible("ub-edit-type",isCustom&&owner);
   setVisible("ub-delete-type",isCustom&&owner);
-  el("ub-add").textContent=t(groups.some(g=>g.id===selectedType)?"Edit bill":"Add bill");
+  el("ub-add-label").textContent=t("Add bill");
  }
  function renderCatalog(){
   const select=el("ub-type");const prior=selectedType;
   select.replaceChildren();
-  for(const type of catalog()){
+  const known=catalog();
+  for(const type of known){
    const option=node("option",null,type.id.startsWith("custom:")?type.name:t(type.name));
    option.value=type.id;select.append(option);
+  }
+  // Preserve access to saved historical categories if their template was deleted.
+  const orphan=groups.find(g=>g.id===prior);
+  if(orphan&&!known.some(x=>x.id===orphan.id)){
+   const option=node("option",null,displayGroupName(orphan));
+   option.value=orphan.id;select.append(option);
   }
   if([...select.options].some(x=>x.value===prior))select.value=prior;
   else selectedType=select.options[0]?.value||"electric";
@@ -211,24 +246,48 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  function openSelectedType(){
   if(!owner||!active())return;
+  const existingGroup=groups.find(g=>g.id===selectedType);
   const type=catalog().find(x=>x.id===selectedType);
-  if(!type)return;
-  let group=groups.find(g=>g.id===selectedType);
-  if(!group){
-   if(countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
-   group=makeGroup(type);groups.push(group);
-   dirty=true;store();
+  if(!type&&!existingGroup)return;
+  if(!existingGroup&&countFees()+type.fees.length>30)return toast(t("Maximum 30 fee items per period."));
+  workingGroup=existingGroup?copy(existingGroup):makeGroup(type);
+  editing=workingGroup.id;
+  originalWorking=JSON.stringify(workingGroup);
+  const editingOld=Boolean(existingGroup);
+  el("ub-modal-heading").textContent=t(editingOld?"Edit bill":"Add bill");
+  el("ub-done").textContent=t(editingOld?"Save changes":"Add bill");
+  el("ub-bill-error").textContent="";
+  renderCatalog();renderForm();
+  const dlg=el("ub-bill-dialog");
+  if(!dlg.open)dlg.showModal();
+ }
+ function cancelBill(){
+  workingGroup=null;editing=null;originalWorking="";
+  if(el("ub-bill-dialog").open)el("ub-bill-dialog").close();
+  renderForm();
+ }
+ function commitBill(){
+  if(!workingGroup||!owner||!active())return;
+  const candidate=workingGroup;
+  const total=groupTotal(candidate);
+  if(total<=0){el("ub-bill-error").textContent=t("Enter an amount greater than zero.");return}
+  // Validate an excluded bill as if enabled, without changing its checkbox state.
+  const verdict=calculateSelection([{...candidate,enabled:true}],residents,residentDays);
+  if(!verdict.valid){
+   el("ub-bill-error").textContent=t(verdict.error||"Invalid sharing rule.");
+   return;
   }
-  editing=group.id;
-  renderForm();renderSummary();
-  el("ub-form")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+  const idx=groups.findIndex(g=>g.id===candidate.id);
+  if(idx>=0)groups[idx]=candidate;
+  else groups.push(candidate);
+  dirty=true;store();cancelBill();renderSummary();
  }
  function renderForm(){
   setVisible("ub-form",Boolean(editing)&&owner);
-  const group=groups.find(g=>g.id===editing);
+  const group=workingGroup;
   if(!group)return;
   el("ub-form-title").textContent=displayGroupName(group);
-  el("ub-done").textContent=t("Done editing");
+  // Button caption depends on add/edit mode, configured on modal open.
   const root=el("ub-form-items");root.replaceChildren();
 
   // Each subfee keeps an independent amount, but the sharing rule belongs to
@@ -243,7 +302,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    amount.addEventListener("input",()=>{
     fee.amount=parseMoney(amount.value);
     amount.value=fee.amount?fmt(fee.amount):"";
-    dirty=true;store();renderSummary();el("ub-form-amount").textContent=money(groupTotal(group));
+    el("ub-bill-error").textContent="";el("ub-form-amount").textContent=money(groupTotal(group));
    });
    field.append(caption,amount);wrap.append(field);root.append(wrap);
   }
@@ -264,7 +323,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   select.addEventListener("change",()=>{
    if(select.value==="mixed")return;
    applyGroupRule(group,select.value);
-   dirty=true;store();renderForm();renderSummary();
+   renderForm();
   });
   methodField.append(ruleLabel,select);
   settings.append(methodField);
@@ -296,7 +355,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     person.append(node("span",null,resident.name));
     if(current==="equal"){
      const checkbox=node("input");checkbox.type="checkbox";checkbox.checked=cfg.included!==false;
-     checkbox.addEventListener("change",()=>{cfg.included=checkbox.checked;dirty=true;store();renderSummary()});
+     checkbox.addEventListener("change",()=>{cfg.included=checkbox.checked});
      person.prepend(checkbox);
     }else{
      const quantity=node("input","control");
@@ -305,7 +364,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
      const key=current==="quantity"?"quantity":"manual";
      quantity.value=String(cfg[key]||0);
      quantity.setAttribute("aria-label",resident.name+" - "+title);
-     quantity.addEventListener("input",()=>{cfg[key]=Math.max(0,Number(quantity.value)||0);dirty=true;store();renderSummary()});
+     quantity.addEventListener("input",()=>{cfg[key]=Math.max(0,Number(quantity.value)||0)});
      person.append(quantity);
     }
     people.append(person);
@@ -329,21 +388,19 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const amount=node("strong","ub-bill-amount",money(groupTotal(group)));
    if(!group.enabled)row.classList.add("ub-excluded");
    const edit=node("button","mini",t("Edit"));edit.type="button";
-   edit.addEventListener("click",()=>{editing=group.id;selectedType=group.id;renderCatalog();renderForm();el("ub-form").scrollIntoView({behavior:"smooth",block:"nearest"})});
+   edit.addEventListener("click",()=>{selectedType=group.id;openSelectedType()});
    const remove=node("button","mini red",t("Remove"));remove.type="button";
    remove.addEventListener("click",async()=>{
     const yes=await confirmAction({title:t("Remove bill from draft?"),message:t("This removes the bill from the current draft only; saved historical bills are not changed."),confirmText:t("Remove"),cancelText:t("Cancel"),tone:"danger"});
     if(!yes)return;
-    groups=groups.filter(g=>g!==group);if(editing===group.id){editing=null;renderForm()}dirty=true;store();renderSummary();
+    groups=groups.filter(g=>g!==group);dirty=true;store();renderSummary();
    });
    if(!owner)toggle.disabled=edit.disabled=remove.disabled=true;
    row.append(toggle,title,amount,edit,remove);list.append(row);
   }
   const tooMany=countFees()>30;
-  const totalEntered=groups.reduce((sum,g)=>sum+groupTotal(g),0);
   const totalSelected=groups.filter(g=>g.enabled).reduce((sum,g)=>sum+groupTotal(g),0);
   el("ub-total").textContent=money(totalSelected);
-  el("ub-entered").textContent=money(totalEntered);
   const result=calculation();
   const people=el("ub-people");people.replaceChildren();
   if(result.valid){
@@ -353,15 +410,18 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     people.append(line);
    }
   }else people.append(node("p","fee-hint",t("Choose at least one nonzero bill to view the breakdown.")));
-  el("ub-error").textContent=tooMany?t("Maximum 30 fee items per period."):(result.valid?"":(groups.length?t(result.error):""));
-  el("ub-save").disabled=!active()||!owner||pending||tooMany||!result.valid;
-  el("ub-share").disabled=!result.valid;
-  el("ub-copy-result").disabled=!result.valid;
+  const allocated=result.valid?result.breakdown.reduce((sum,p)=>sum+Number(p.amount||0),0):0;
+  const mismatch=result.valid&&allocated!==totalSelected;
+  el("ub-error").textContent=tooMany?t("Maximum 30 fee items per period."):mismatch?
+   t("Allocated amounts do not match the bill total. Please check the sharing rule."):(result.valid?"":(groups.length?t(result.error):""));
+  el("ub-save").disabled=!active()||!owner||pending||tooMany||!result.valid||mismatch;
+  el("ub-share").disabled=!result.valid||mismatch;
+  el("ub-copy-result").disabled=!result.valid||mismatch;
   refreshTypeActions();
  }
  function renderAll(){
   el("ub-month").value=month;
-  renderCatalog();renderForm();renderSummary();renderHistory();
+  renderCatalog();renderSummary();renderHistory();
  }
  function summarize(){
   const result=calculation();if(!result.valid)return "";
@@ -402,74 +462,91 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   for(const pay of payments.filter(x=>x.period_id===period.id))lines.push(pay.resident_name+": "+money(pay.amount));
   return lines.join("\n");
  }
+ function openPeriodDetail(period){
+  const detail=node("div","fee-history-details history-detail-body");
+  const charges=node("section","history-detail-section");
+  charges.append(node("h4",null,t("Charges")));
+  for(const item of period.items||[]){
+   const row=node("div","fee-history-charge");
+   row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+t(item.name)),
+    node("strong",null,money(item.original_amount??item.amount)));
+   charges.append(row);
+  }
+  detail.append(charges);
+  const paySection=node("section","history-detail-section");
+  paySection.append(node("h4",null,t("Payment status by resident")));
+  for(const pay of payments.filter(x=>x.period_id===period.id)){
+   const row=node("div","fee-history-payment"),info=node("div"),controls=node("div","fee-history-payment-actions");
+   info.append(node("strong",null,pay.resident_name),node("small",null,money(pay.amount)));
+   const byBill=node("details","fee-person-breakdown");
+   byBill.append(node("summary",null,t("View fee details")));
+   for(const item of period.items||[]){
+    const amount=(item.allocations||[]).find(a=>a.resident_id===pay.resident_id)?.share||0;
+    if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,t(item.name)),node("strong",null,money(amount)));byBill.append(line)}
+   }
+   info.append(byBill);
+   const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
+   controls.append(node("span","payment-badge "+pay.status,t(statuses[pay.status]||"Unpaid")));
+   const linked=residents.find(r=>r.id===pay.resident_id&&r.user_id===getContext().user?.id);
+   if(owner&&pay.status==="submitted"){
+    const button=node("button","mini",t("Confirm receipt"));button.type="button";
+    button.addEventListener("click",async()=>{
+     button.disabled=true;
+     const {data,error}=await db.rpc("confirm_apartment_fee_payment",{p_payment_id:pay.id});
+     if(error||data!==true){errorNotice("Could not confirm payment.",error);button.disabled=false;return}
+     pay.status="confirmed";renderHistory();openPeriodDetail(period);toast(t("Payment confirmed."));
+    });
+    controls.append(button);
+   }else if(!owner&&linked&&pay.status==="unpaid"){
+    const button=node("button","mini",t("I have paid"));button.type="button";
+    button.addEventListener("click",async()=>{
+     button.disabled=true;
+     const {data,error}=await db.rpc("report_apartment_fee_payment",{p_payment_id:pay.id});
+     if(error||data!==true){errorNotice("Could not report payment.",error);button.disabled=false;return}
+     pay.status="submitted";renderHistory();openPeriodDetail(period);toast(t("Payment reported to your apartment owner."));
+    });
+    controls.append(button);
+   }
+   row.append(info,controls);paySection.append(row);
+  }
+  detail.append(paySection);
+  openHistoryDetail((period.name===BILL_NAME?t("Monthly billing"):period.name)+" · "+period.bill_month,detail,t("Close"));
+ }
  function renderHistory(){
   onHistoryChanged?.(periods.length);
   const root=el("fee-history");root.replaceChildren();
-  if(!periods.length){root.append(node("p","muted",t("No saved bills yet.")));return}
+  if(!periods.length)return;
   for(const period of periods){
-   const article=node("article","fee-history-card");
-   const summary=node("div","fee-history-summary"),left=node("div");
-   left.append(node("strong",null,period.name===BILL_NAME?t("Monthly billing")+" · "+period.bill_month:period.name));
-   left.append(node("small",null,period.bill_month+" · "+(period.items?.length||0)+" "+t("fee items")));
-   summary.append(left,node("strong",null,money(period.total)));
-   const buttons=node("div","fee-history-actions"),toggle=node("button","mini",t(shown.has(period.id)?"Hide details":"Details"));toggle.type="button";
-   toggle.addEventListener("click",()=>{shown.has(period.id)?shown.delete(period.id):shown.add(period.id);renderHistory()});
-   const copyButton=node("button","mini",t("Copy bill"));copyButton.type="button";
-   copyButton.addEventListener("click",()=>writeClipboard(savedText(period)));
-   const shareButton=node("button","mini",t("Share bill"));shareButton.type="button";
-   shareButton.addEventListener("click",()=>shareText(savedText(period),period.name));
-   buttons.append(toggle,copyButton,shareButton);
+   const article=node("article","history-entry fee-history-card");
+   const left=node("div","history-entry-info");
+   left.append(node("strong",null,(period.name===BILL_NAME?t("Monthly billing"):period.name)+" · "+period.bill_month),
+    node("small",null,(period.items?.length||0)+" "+t("fee items")));
+   const amount=node("strong","history-entry-amount",money(period.total));
+   const actions=node("div","history-entry-actions");
+   const detailBtn=node("button","mini",t("Details"));detailBtn.type="button";
+   detailBtn.addEventListener("click",()=>openPeriodDetail(period));
+   const copyBtn=node("button","mini",t("Copy bill"));copyBtn.type="button";
+   copyBtn.addEventListener("click",()=>writeClipboard(savedText(period)));
+   actions.append(detailBtn,copyBtn);
+   const options=[{label:t("Share bill"),onClick:()=>shareText(savedText(period),period.name)}];
    if(owner){
-    const copyButton2=node("button","mini",t("Copy to editor"));copyButton2.type="button";
-    copyButton2.addEventListener("click",()=>{
-     month=nowMonth();groups=restorePeriod(period,true);editing=null;dirty=true;store();renderAll();
+    options.push({label:t("Copy to editor"),onClick:()=>{
+     month=nowMonth();groups=restorePeriod(period,true);cancelBill();dirty=true;store();renderAll();
      el("fee-editor").scrollIntoView({behavior:"smooth",block:"start"});
-    });
-    buttons.append(copyButton2);
-    const remove=node("button","mini red",t("Delete"));remove.type="button";
-    remove.addEventListener("click",async()=>{
+    }});
+    options.push({label:t("Delete"),destructive:true,onClick:async()=>{
      const yes=await confirmAction({title:t("Delete billing period?"),message:t("This deletes the saved period and payment statuses."),confirmText:t("Delete bill"),cancelText:t("Keep bill"),tone:"danger"});
      if(!yes)return;
      const {error}=await db.rpc("delete_apartment_fee_period",{p_period_id:period.id});
      if(error)return errorNotice("Could not delete the bill.",error);
-     periods=periods.filter(p=>p.id!==period.id);payments=payments.filter(p=>p.period_id!==period.id);shown.delete(period.id);renderHistory();
-    });
-    buttons.append(remove);
+     closeHistoryDetail();
+     periods=periods.filter(p=>p.id!==period.id);
+     payments=payments.filter(p=>p.period_id!==period.id);
+     renderHistory();
+    }});
    }
-   summary.append(buttons);article.append(summary);
-   if(shown.has(period.id)){
-    const detail=node("div","fee-history-details");
-    for(const item of period.items||[]){
-     const row=node("div","fee-history-charge");
-     row.append(node("span",null,(item.enabled===false?t("Excluded")+" · ":"")+t(item.name)),node("strong",null,money(item.original_amount??item.amount)));
-     detail.append(row);
-    }
-    for(const pay of payments.filter(x=>x.period_id===period.id)){
-     const row=node("div","fee-history-payment"),info=node("div"),controls=node("div","fee-history-payment-actions");
-     info.append(node("strong",null,pay.resident_name),node("small",null,money(pay.amount)));
-     const byBill=node("details","fee-person-breakdown");
-     byBill.append(node("summary",null,t("View fee details")));
-     for(const item of period.items||[]){
-      const amount=(item.allocations||[]).find(a=>a.resident_id===pay.resident_id)?.share||0;
-      if(amount){const line=node("div","fee-person-breakdown-row");line.append(node("span",null,t(item.name)),node("strong",null,money(amount)));byBill.append(line)}
-     }
-     info.append(byBill);
-     const statuses={unpaid:"Unpaid",submitted:"Payment reported",confirmed:"Received"};
-     controls.append(node("span","payment-badge "+pay.status,t(statuses[pay.status]||"Unpaid")));
-     const linked=residents.find(r=>r.id===pay.resident_id&&r.user_id===getContext().user?.id);
-     if(owner&&pay.status==="submitted"){
-      const button=node("button","mini",t("Confirm receipt"));button.type="button";
-      button.addEventListener("click",async()=>{button.disabled=true;const {data,error}=await db.rpc("confirm_apartment_fee_payment",{p_payment_id:pay.id});if(error||data!==true)errorNotice("Could not confirm payment.",error);else{pay.status="confirmed";renderHistory();toast(t("Payment confirmed."))}button.disabled=false});
-      controls.append(button);
-     }else if(!owner&&linked&&pay.status==="unpaid"){
-      const button=node("button","mini",t("I have paid"));button.type="button";
-      button.addEventListener("click",async()=>{button.disabled=true;const {data,error}=await db.rpc("report_apartment_fee_payment",{p_payment_id:pay.id});if(error||data!==true)errorNotice("Could not report payment.",error);else{pay.status="submitted";renderHistory();toast(t("Payment reported to your apartment owner."))}button.disabled=false});
-      controls.append(button);
-     }
-     row.append(info,controls);detail.append(row);
-    }
-    article.append(detail);
-   }
+   actions.append(historyMenu(options,t("More options")));
+   article.append(left,amount,actions);
    root.append(article);
   }
  }
@@ -480,7 +557,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    const yes=await confirmAction({title:t("Replace current draft?"),message:t("This replaces the current draft with the previous bill structure. Amounts will be cleared."),confirmText:t("Copy structure"),cancelText:t("Cancel")});
    if(!yes)return;
   }
-  groups=restorePeriod(prior,true);editing=null;dirty=true;store();renderAll();
+  groups=restorePeriod(prior,true);cancelBill();dirty=true;store();renderAll();
   toast(t("Copied. Enter this month's amounts."));
  }
  async function savePeriod(){
@@ -499,7 +576,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     p_apartment_id:apt,p_month:month,p_name:BILL_NAME,p_items:payload
    });
    if(error)throw error;
-   forgetDraft();dirty=false;reloadSaved=true;editing=null;
+   forgetDraft();dirty=false;reloadSaved=true;cancelBill();
    toast(t("Monthly settlement saved."));
    if(onSaved)await onSaved(apt);
    else await load(apt,owner,residents);
@@ -565,13 +642,13 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!yes)return;
   const {error}=await db.from("apartment_fee_templates").delete().eq("id",type.id).eq("apartment_id",apt);
   if(error)return errorNotice("Could not delete bill type.",error);
-  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();toast(t("Custom bill type deleted."));
+  templates=templates.filter(x=>x.id!==type.id);selectedType="electric";renderCatalog();openSelectedType();toast(t("Custom bill type deleted."));
  }
  async function load(apartment,ownerFlag,roster){
   if(!apartment)return clear();
   const changed=apt!==apartment;
   apt=apartment;owner=ownerFlag;residents=roster||[];
-  if(changed){month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
+  if(changed){cancelBill();closeHistoryDetail();month=nowMonth();groups=[];editing=null;dirty=false;shown.clear();loaded=false}
   setVisible("fee-workspace",owner);
   setVisible("fee-editor",owner);
   setVisible("fee-mode-controls",false);
@@ -594,25 +671,29 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   else renderAll();
  }
  function clear(){
-  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;editing=null;loaded=false;reloadSaved=false;
+  apt=null;owner=false;residents=[];periods=[];templates=[];payments=[];groups=[];dirty=false;cancelBill();closeHistoryDetail();loaded=false;reloadSaved=false;
   setVisible("fee-workspace",false);
  }
  function retranslate(){
   if(!el("ub-heading"))return;
   const keys=[
    ["ub-heading","Billing period"],["ub-caption","Select a month to calculate the full billing period."],
-   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add","Add bill"],
+   ["ub-month-text","Billing month"],["ub-type-label","Bill type"],["ub-add-label","Add bill"],["ub-modal-heading","Add bill"],
    ["ub-new-type","+ Create custom bill type"],["ub-edit-type","Edit custom type"],["ub-delete-type","Delete custom type"],
-   ["ub-cancel","Close"],["ub-form-total-label","Bill subtotal"],["ub-done","Done editing"],
+   ["ub-cancel","Cancel"],["ub-form-total-label","Bill subtotal"],
    ["ub-summary-title","Bills in this period"],["ub-empty","No bills yet. Choose a bill type above to begin."],
-   ["ub-selected-label","Selected total"],["ub-entered-label","All entered bills"],
+   ["ub-selected-label","Total amount"],
    ["ub-people-heading","Per-resident breakdown"],["ub-copy-last-label","Use last month's template"],
    ["ub-share-label","Share breakdown"],["ub-save-label","Save monthly settlement"],["ub-copy-result-label","Copy bill as message"],
-   ["ub-info","Unticking a bill excludes it from the total without deleting the entered amounts. Saving a changed period resets its payment statuses."],
+   ["ub-info","Replacing a saved billing period resets its payment statuses."],
    ["ub-name-label","Bill type name"],["ub-subfee-label","Included fee items"],["ub-method-label","Default sharing rule"],
    ["ub-add-subfee","+ Add subfee"],["ub-type-cancel","Close"],["ub-type-save","Save bill type"]
   ];
   for(const [id,key] of keys){const e=el(id);if(e)e.textContent=t(key)}
+  el("ub-modal-close").setAttribute("aria-label",t("Close"));
+  for(const [id,key] of [["ub-save","Save monthly settlement"],["ub-copy-result","Copy bill as message"],["ub-share","Share breakdown"]]){
+   const e=el(id);if(e){e.setAttribute("aria-label",t(key));e.setAttribute("title",t(key))}
+  }
   el("fee-title").textContent=t("Calculate monthly bills");
   const desc=el("fee-title").nextElementSibling;if(desc)desc.textContent=t("Choose days, add bills, and save your monthly settlement.");
   const head=el("fee-history")?.closest(".fee-history-wrap")?.querySelector("h4");
@@ -621,7 +702,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(hdesc)hdesc.textContent=t("Saved periods and payment progress.");
   const options=el("ub-new-method").options;
   [...options].forEach(o=>o.textContent=t(METHODS_LABEL[o.value]||o.value));
-  if(loaded)renderAll();
+  if(loaded){renderAll();if(workingGroup){el("ub-modal-heading").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Edit bill":"Add bill");el("ub-done").textContent=t(groups.some(g=>g.id===workingGroup.id)?"Save changes":"Add bill");renderForm()}}
  }
  install();
  setVisible("fee-workspace",false);

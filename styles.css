@@ -1443,3 +1443,236 @@ body.app-active #ub-type-dialog .control{border-radius:12px}
  body.app-active #fee-editor .button,
  body.app-active #fee-editor .mini{transition:none}
 }
+
+
+/* Compact bill-creation modal, single total card and unified history. */
+body.app-active #bill-add-heading{
+ display:flex;align-items:center;justify-content:space-between;gap:14px;
+ padding:21px 0 2px;border-top:1px solid #ececec
+}
+body.app-active #bill-add-heading h4{margin:0}
+body.app-active #bill-add-heading p{margin:5px 0 0;font-size:.79rem;color:#737373}
+body.app-active #bill-add-heading .ub-add-row{display:block;margin:0;flex:0 0 auto}
+body.app-active #ub-add{
+ min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+ border-radius:12px;padding:10px 20px;white-space:nowrap
+}
+.ub-add-plus{font-weight:700;font-size:1.25rem;line-height:1}
+.ub-bill-dialog,.history-detail-dialog{
+ position:fixed;inset:0;width:min(590px,calc(100vw - 32px));max-width:none;
+ max-height:min(88dvh,900px);margin:auto;padding:0;
+ border:1px solid #dedede;border-radius:20px;color:#161616;
+ box-shadow:0 24px 80px rgba(0,0,0,.21);background:#fff;
+ overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+}
+.ub-bill-dialog::backdrop,.history-detail-dialog::backdrop{background:rgba(0,0,0,.48)}
+.ub-bill-dialog-inner,.history-detail-dialog-inner{padding:22px;display:grid;gap:15px;min-width:0}
+.ub-bill-dialog .ub-dialog-head,.history-detail-dialog-head{
+ display:flex;align-items:center;justify-content:space-between;gap:10px
+}
+.ub-bill-dialog .ub-dialog-head h3,.history-detail-dialog-head h3{
+ margin:0;font-size:1.16rem;line-height:1.4;letter-spacing:-.022em
+}
+.ub-bill-dialog .ub-dialog-head .mini,
+.history-detail-dialog-head .mini{
+ display:grid;place-items:center;min-width:38px;min-height:38px;
+ background:#f5f5f5;border:1px solid #e8e8e8;border-radius:11px;
+ cursor:pointer;font-weight:700
+}
+.ub-bill-dialog .field{display:grid;gap:7px}
+.ub-bill-dialog .field>span{font-size:.8rem;font-weight:700}
+.ub-bill-dialog .control{
+ display:block;width:100%;min-width:0;min-height:46px;
+ border:1px solid #dcdcdc;border-radius:12px;padding:10px 14px;
+ background:#fff;font-size:.87rem;color:#181818
+}
+.ub-bill-dialog .control:focus{
+ outline:0;border-color:#666;box-shadow:0 0 0 3px rgba(0,0,0,.10)
+}
+.ub-bill-dialog .ub-category-actions{
+ display:flex;flex-wrap:wrap;gap:8px;margin:0
+}
+.ub-bill-dialog .ub-category-actions .mini{min-height:35px;border-radius:9px;font-size:.75rem}
+body.app-active .ub-bill-dialog #ub-form{
+ display:grid;gap:14px;padding:0;margin:0!important;border:0!important;
+ border-radius:0!important;box-shadow:none!important
+}
+.ub-bill-dialog #ub-form-title{display:none}
+.ub-bill-dialog #ub-form-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.ub-bill-dialog #ub-form-items .ub-fee-field{
+ min-width:0;margin:0;padding:13px;background:#fafafa;
+ border:1px solid #ededed;border-radius:12px
+}
+.ub-bill-dialog #ub-form-items .ub-fee-field .field>span{
+ display:block;font-size:.77rem;min-height:0;line-height:1.45
+}
+.ub-bill-dialog #ub-form-items .ub-group-rule{
+ grid-column:1/-1;display:grid;gap:10px;
+ padding-top:17px;border-top:1px solid #ececec
+}
+.ub-bill-dialog .ub-default-note{
+ display:flex;align-items:flex-start;gap:10px;
+ background:#f6f6f6;border:1px solid #e8e8e8;border-radius:12px;padding:13px
+}
+.ub-bill-dialog .ub-form-total{
+ display:flex;justify-content:space-between;align-items:center;
+ margin:2px 0 0;padding:15px 0 0;border-top:1px solid #ececec
+}
+.ub-bill-dialog .ub-form-total strong{font-size:1.25rem}
+.ub-bill-footer{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;align-items:center;position:sticky;bottom:0;z-index:2;padding:12px 0 2px;background:#fff;border-top:1px solid #ededed}
+.ub-bill-footer .button{width:100%;min-width:0;min-height:46px;border-radius:12px}
+.ub-bill-dialog .ub-resident-details{margin:0;border-radius:12px}
+.ub-bill-dialog .ub-group-people{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.ub-bill-dialog .ub-person-row{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ border:1px solid #eaeaea;background:#fafafa;border-radius:10px;padding:9px
+}
+.ub-bill-dialog .ub-person-row input[type=number]{max-width:105px;min-width:64px}
+body.app-active #bill-summary-card{
+ display:grid;gap:15px;border:1px solid #dedede;border-radius:18px;
+ background:#fff;padding:clamp(15px,2.2vw,23px);box-shadow:0 5px 18px rgba(0,0,0,.025)
+}
+body.app-active #bill-summary-card #bill-total-heading{
+ margin:0;padding:0;border:0
+}
+body.app-active #bill-summary-card .ub-summary{margin:0;padding:0;border:0}
+body.app-active #bill-summary-card .ub-summary-head{margin:0 0 12px}
+body.app-active #bill-summary-card .fee-breakdown{
+ display:block;margin:17px 0 0;padding:0;
+ border:1px solid #e4e4e4;border-radius:14px;overflow:hidden
+}
+body.app-active #bill-summary-card .ub-breakdown-head{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:15px 16px;background:#f8f8f8;border-bottom:1px solid #e9e9e9
+}
+body.app-active #bill-summary-card .ub-breakdown-head h4{margin:0;font-size:.97rem}
+body.app-active #bill-summary-card .ub-total-in-breakdown{
+ display:grid;gap:3px;text-align:right;flex:0 0 auto
+}
+body.app-active #bill-summary-card .ub-total-in-breakdown span{color:#696969;font-size:.7rem}
+body.app-active #bill-summary-card .ub-total-in-breakdown strong{
+ font-size:1.22rem;font-weight:800;white-space:nowrap
+}
+body.app-active #bill-summary-card #ub-people{padding:0 16px}
+body.app-active #bill-summary-card .fee-breakdown-row{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:11px 0;border-bottom:1px solid #ededed
+}
+body.app-active #bill-summary-card .fee-breakdown-row:last-child{border-bottom:0}
+body.app-active #bill-summary-card .fee-breakdown-row strong{white-space:nowrap}
+body.app-active #bill-summary-card .ub-actions{
+ display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:9px;
+ padding-top:16px;margin-top:0;border-top:1px solid #ececec
+}
+body.app-active #bill-summary-card .ub-actions button{
+ grid-column:auto!important;grid-row:auto!important;
+ display:grid;place-items:center;width:100%;min-width:0;min-height:47px;
+ border-radius:12px;padding:9px
+}
+body.app-active #bill-summary-card .ub-actions svg{width:20px;height:20px}
+body.app-active #bill-summary-card .ub-actions button:hover:not(:disabled){transform:translateY(-1px)}
+body.app-active #bill-summary-card #ub-info{margin:0;font-size:.72rem;line-height:1.5;color:#7a7a7a}
+body.app-active #billing-history-panel .history{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+body.app-active #billing-history-panel .fee-history{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+body.app-active #billing-history-panel .history-head{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px
+}
+body.app-active #billing-history-panel .history-head p{display:none}
+body.app-active #billing-history-panel .history-head .refresh-note{display:none!important}
+body.app-active #billing-history-panel .history-live-actions{gap:10px;align-items:center}
+body.app-active #billing-history-panel .bill-history-group-title,
+body.app-active #billing-history-panel .fee-history-head h4{font-size:.88rem;line-height:1.4}
+body.app-active #billing-history-panel .history-entry{
+ display:grid!important;grid-template-columns:minmax(0,1fr) 150px auto;
+ align-items:center;gap:16px;
+ padding:15px 16px!important;margin:0 0 10px!important;
+ min-height:74px;border:1px solid #e2e2e2!important;border-radius:13px!important;
+ background:#fff;box-shadow:none!important;overflow:visible
+}
+body.app-active #billing-history-panel .history-entry:hover{background:#fafafa;border-color:#ccc!important}
+body.app-active #billing-history-panel .history-entry-info{display:grid;gap:6px;min-width:0}
+body.app-active #billing-history-panel .history-entry-info strong{
+ font-size:.86rem;font-weight:730;line-height:1.35;overflow-wrap:anywhere
+}
+body.app-active #billing-history-panel .history-entry-info small{font-size:.73rem;color:#797979}
+body.app-active #billing-history-panel .history-entry-amount{
+ font-size:.91rem;font-weight:800;text-align:right;white-space:nowrap
+}
+body.app-active #billing-history-panel .history-entry-actions{
+ display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0
+}
+body.app-active #billing-history-panel .history-entry-actions .mini{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-height:36px;min-width:36px;padding:7px 11px;border:1px solid #dcdcdc;
+ border-radius:10px;background:#fff;color:#111;font-size:.75rem
+}
+.history-more{position:relative;flex:0 0 auto}
+.history-more summary{list-style:none;cursor:pointer;user-select:none}
+.history-more summary::-webkit-details-marker{display:none}
+.history-more summary:focus-visible{outline:2px solid #111;outline-offset:2px}
+.history-more-content{
+ position:absolute;right:0;top:calc(100% + 7px);z-index:50;
+ min-width:165px;padding:6px;border:1px solid #e1e1e1;
+ background:#fff;box-shadow:0 12px 25px rgba(0,0,0,.13);
+ border-radius:12px;display:grid;gap:2px
+}
+.history-menu-item{
+ border:0;background:transparent;color:#1d1d1d;cursor:pointer;
+ min-height:38px;padding:9px 12px;font:inherit;
+ font-size:.8rem;text-align:left;border-radius:7px
+}
+.history-menu-item:hover:not(:disabled),.history-menu-item:focus-visible{background:#f3f3f3}
+.history-menu-item:disabled{opacity:.42;cursor:not-allowed}
+.history-menu-danger{color:#b42318}
+.history-detail-dialog-inner{gap:15px}
+.history-detail-dialog-content{min-width:0}
+.history-detail-dialog-head{padding-bottom:13px;border-bottom:1px solid #ededed}
+.history-detail-dialog .history-detail-body{display:grid;gap:12px}
+.history-detail-dialog .history-detail-section{display:grid;gap:0}
+.history-detail-dialog .history-detail-section h4{margin:0 0 9px;font-size:.86rem}
+.history-detail-dialog .fee-history-charge,
+.history-detail-dialog .fee-history-payment,
+.history-detail-dialog .paid-row{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:13px 0;border-bottom:1px solid #ededed
+}
+.history-detail-dialog .history-detail-section>:last-child{border-bottom:0}
+.history-detail-dialog .fee-history-payment>div:first-child{min-width:0}
+.history-detail-dialog .fee-history-payment-actions,
+.history-detail-dialog .payment-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.history-detail-dialog .fee-person-breakdown{margin-top:8px}
+.history-detail-dialog .fee-person-breakdown-row{display:flex;justify-content:space-between;gap:9px}
+.history-detail-dialog .history-detail-subtitle{margin:0;color:#777;font-size:.8rem}
+@media(max-width:760px){
+ body.app-active #billing-history-panel .history-entry{
+  grid-template-columns:minmax(0,1fr) auto!important;gap:12px
+ }
+ body.app-active #billing-history-panel .history-entry-amount{grid-column:2;grid-row:1}
+ body.app-active #billing-history-panel .history-entry-actions{
+  grid-column:1/-1;justify-content:flex-start;grid-row:2;
+  padding-top:9px;border-top:1px solid #f0f0f0
+ }
+}
+@media(max-width:560px){
+ body.app-active #bill-add-heading{gap:10px;align-items:center}
+ body.app-active #bill-add-heading p{display:none}
+ body.app-active #ub-add{padding:9px 12px;min-height:43px;font-size:.79rem}
+ .ub-bill-dialog,.history-detail-dialog{
+  width:100%;max-height:100dvh;height:100dvh;max-width:none;
+  border:0;border-radius:0
+ }
+ .ub-bill-dialog-inner,.history-detail-dialog-inner{padding:18px 14px}
+ .ub-bill-footer{padding:12px 0 8px}
+ .ub-bill-dialog #ub-form-items{grid-template-columns:1fr}
+ .ub-bill-dialog .ub-group-people{grid-template-columns:1fr}
+ body.app-active #bill-summary-card .ub-breakdown-head{padding:13px 12px}
+ body.app-active #bill-summary-card #ub-people{padding:0 12px}
+ body.app-active #bill-summary-card .ub-actions{grid-template-columns:1.25fr 1fr 1fr}
+ body.app-active #bill-summary-card .ub-actions button{min-height:46px}
+ body.app-active #billing-history-panel .history-entry{padding:12px!important}
+ body.app-active #billing-history-panel .history-entry-actions .mini{padding:7px 10px}
+ .history-detail-dialog .fee-history-payment,.history-detail-dialog .paid-row{align-items:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+ body.app-active #bill-summary-card .ub-actions button{transition:none}
+}

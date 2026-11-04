@@ -84,7 +84,9 @@ test("authenticated dashboard composes a single month flow and moves existing hi
  assert.equal(residentPanel.parentElement,days);
  assert.equal(days.parentElement,editor);
  assert.equal(days.open,true);
- assert.ok(editor.children.indexOf(days)<editor.children.findIndex(c=>c.classList.contains("ub-add-row")));
+ assert.ok(editor.children.indexOf(days)<editor.children.findIndex(c=>c.id==="bill-add-heading"));
+ assert.equal(document.querySelector("#bill-add-heading .ub-add-row")?.parentElement.id,"bill-add-heading");
+ assert.equal(document.getElementById("bill-summary-card").querySelector(".ub-summary")?.parentElement.id,"bill-summary-card");
  assert.equal(feeHistory.parentElement,history);
  assert.equal(document.getElementById("history").parentElement.id,"bill-history-legacy");
  assert.ok(!fee.children.includes(feeHistory));
