@@ -58,6 +58,7 @@ function billingPeriod(){
 }
 function occupiedDays(p){
  const cap=billingPeriod().days;
+ if(p.mode==="full")return cap;
  if(p.mode==="custom")return Math.min(cap,Math.max(0,Math.trunc(Number(p.custom_days)||0)));
  const w=Number((p.mode||"w4").slice(1));
  return Math.min(cap,[1,2,3,4].includes(w)?w*7:28);
@@ -111,7 +112,15 @@ function renderResult(){
   const days=$("#members").querySelector('[data-days-id="'+resident.id+'"]');
   if(share)share.textContent=money(map.get(resident.id)?.share||0);
   if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
+  const fullHint=$("#members").querySelector('[data-full-period-days-id="'+resident.id+'"]');
+  if(fullHint){
+   fullHint.textContent=t("{count} days",{count:p.days});
+   const button=fullHint.closest("button");
+   if(button)button.setAttribute("aria-label",resident.name+": "+t("Full billing period ({count} days)",{count:p.days}));
+  }
  }
+ // Keep custom-day input limits in sync when the billing month/range changes.
+ for(const input of $("#members").querySelectorAll(".day-choice"))input.max=String(p.days);
  const issue=validateBill();
  label("#validation",issue==="Enter a valid bill amount."&&!state.draft.amount?"":t(issue));
  $("#save").disabled=state.billSaving||!!issue;
@@ -173,7 +182,25 @@ function renderResidentTable(){
    btn.addEventListener("click",()=>{p.mode=code;changedResident(p);renderResidentTable()});
    td.append(btn);row.append(td);
   }
-  const td=el("td"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));
+  const fullTd=el("td","full-period-cell");
+  const fullActive=p.mode==="full";
+  const fullDays=billingPeriod().days;
+  const fullButton=el("button","week-choice full-period-choice"+(fullActive?" active":""),t("Full period"));
+  fullButton.type="button";
+  fullButton.disabled=!state.owner;
+  fullButton.setAttribute("aria-pressed",String(fullActive));
+  fullButton.setAttribute("aria-label",p.name+": "+t("Full billing period ({count} days)",{count:fullDays}));
+  const fullHint=el("small","full-period-days",t("{count} days",{count:fullDays}));
+  fullHint.dataset.fullPeriodDaysId=p.id;
+  fullButton.append(fullHint);
+  fullButton.addEventListener("click",()=>{
+   p.mode="full";
+   p.custom_days=0;
+   changedResident(p);
+   renderResidentTable();
+  });
+  fullTd.append(fullButton);row.append(fullTd);
+  const td=el("td","custom-days-cell"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));
   input.type="number";input.min="0";input.max=String(billingPeriod().days);input.inputMode="numeric";
   input.placeholder=t("Days");input.disabled=!state.owner;
   input.value=p.mode==="custom"?String(p.custom_days):"";
@@ -190,10 +217,10 @@ function renderResidentTable(){
   input.addEventListener("change",()=>{input.value=String(p.custom_days)});
   const customCaption=el("span","cell-caption",t("Custom days"));
   td.append(customCaption,input);row.append(td);
-  const shareTd=el("td"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days",t("0 days"));
+  const shareTd=el("td","share-cell"),val=el("strong","person-share","0 ₫"),hint=el("small","person-days",t("0 days"));
   val.dataset.shareId=p.id;hint.dataset.daysId=p.id;hint.textContent=t("0 days");
   shareTd.append(el("span","cell-caption",t("Amount due")),val,hint);row.append(shareTd);
-  const delTd=el("td");
+  const delTd=el("td","remove-cell");
   if(state.owner){
    const del=el("button","delete-person","×");del.type="button";del.setAttribute("aria-label",t("Remove {name}",{name:p.name}));
    del.addEventListener("click",()=>removeResident(p));delTd.append(del);
@@ -201,7 +228,7 @@ function renderResidentTable(){
   row.append(delTd);body.append(row);
  }
  if(!state.residents.length){
-  const row=el("tr"),td=el("td","muted",t("No residents yet. Add one above."));td.colSpan=8;row.append(td);body.append(row);
+  const row=el("tr"),td=el("td","muted",t("No residents yet. Add one above."));td.colSpan=9;row.append(td);body.append(row);
  }
  renderHouseholdList();renderResult();
 }
@@ -817,7 +844,7 @@ async function loadSavedBill(bill){
  for(const resident of state.residents){
   const saved=historical.get(resident.id);
   if(!saved)continue;
-  if(["w1","w2","w3","w4","custom"].includes(saved.mode)){
+  if(["w1","w2","w3","w4","custom","full"].includes(saved.mode)){
    resident.mode=saved.mode;
    resident.custom_days=Math.max(0,Math.trunc(Number(saved.custom_days)||0));
   }
