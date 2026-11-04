@@ -23,12 +23,22 @@ The equivalent Windows CMD environment assignment is set "CLOUDFLARE_ACCOUNT_ID=
 
 No JavaScript secrets should ever be committed. The frontend contains only a publishable database key and is protected by database-level RLS.
 
+
+## Unified household manager
+
+- One **Add member** button opens a branded modal with resident name and optional email.
+- **Add only** saves an unlinked resident; **Add & invite** creates the resident and immediately sends the secure email invitation.
+- The resident list shows **Not invited / Invited / Joined**, plus contextual **Invite / Resend / Revoke / Remove access** actions.
+- Sending or resending an invitation does not create a duplicate resident. Invalid email and duplicate name are rejected. A mail delivery failure keeps the resident and offers the private invite-link fallback.
+- The old two-column add/invite forms and manual resident dropdown were removed.
+- The owner continues to configure residency days and bill shares independently in **Residents & days**. This rollout adds no new database tables or changes to stored bills.
+
 ## Apartment workflow
 
 1. Sign in by email magic link (existing Auth email provider).
 2. Create an apartment. The server assigns a unique code (OG-...); this code is **not** an access credential.
 3. Every new apartment starts empty. Residents are added by its owner; no old private records are imported.
-4. Add or edit apartment residents. Only the owner may modify the roster, billing-period inputs and bill history.
+4. Add or edit apartment residents using the unified household member list. Only the owner may modify the roster, billing-period inputs and bill history.
 5. Invite a resident by email. The server generates a 256-bit random invite token, stores only its SHA-256 hash, and expires it after 7 days. The invited recipient must verify the matching email before joining. Invitation email is currently sent as an **authentication sign-in/confirmation link** through the existing email service, with the private invite token in the return URL. A copy-link fallback is available if the email service hits quota or fails.
 6. Members can view shared bill history and report **their own** payments. The owner confirms receipt; a member cannot independently mark themselves as paid/received.
 7. Apartment owners can remove member access and revoke pending invites.
