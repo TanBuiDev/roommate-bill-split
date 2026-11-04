@@ -54,19 +54,19 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 
 ## Live updates, sharing and batch onboarding
 
-- Signed-in apartment clients subscribe to **realtime changes** for bills, allocations, residents, members and invitations. A 20-second polling fallback, visibility/focus refresh, and a manual **Refresh** button keep payment statuses current without a page reload.
-- Background updates preserve the current bill type, month, amount and actual meter-reading dates, and avoid refreshing while resident edits are being saved. The history uses the latest server values.
+- **Manual synchronization only.** The application fetches apartment data when the user signs in, selects an apartment, performs an explicit action, presses **Refresh**, or reloads the page. No realtime WebSocket subscription, background polling, tab-focus fetch, or timed sync is active.
+- Manual **Refresh** preserves the current bill type, month, amount and actual meter-reading dates. Pending resident edits are saved first. Updates made on another device remain unseen until an explicit refresh or page reload.
 - **Share result** opens the operating system sharing sheet where supported; other browsers copy the formatted breakdown to the clipboard. Sharing is user initiated and does not expose login or invitation tokens.
 - **Add multiple** accepts residents separated by line breaks, commas or semicolons. It rejects duplicate/existing names, overly long names and more than 70 residents per apartment. One database insert sends all names together; no invitation email is sent.
-- Newly created residents, including the owner opting into bill splitting, start with **4 custom days**. After a successful bill save, historical allocations stay unchanged and current resident day preferences are reset to **4 days** for the next bill. If that second update fails, the user is told the bill was saved but defaults were not reset.
-- Realtime is enabled for the five apartment-related public tables in the Supabase publication. Database RLS still controls read permissions.
+- Newly created residents, including the owner opting into bill splitting, start with **4 weeks (28 days)**. After a successful bill save, historical allocations stay unchanged and current resident day preferences are reset to **4 weeks (28 days)** for the next bill. If that second update fails, the user is told the bill was saved but defaults were not reset.
+- Realtime publication entries for apartment tables are disabled because this application relies on manual refresh only. Database RLS still controls read permissions.
 
 ## Billing behavior
 
 - Currency entry dynamically formats thousands groups in the vi-VN convention, e.g. 160.000.000.
 - Month field derives calendar days automatically, including leap years.
 - Optional meter-reading start and end dates override month length (inclusive date range).
-- Residents can select 1, 2, 3 or 4 weeks (7/14/21/28 days) or custom number of days; a new resident defaults to 4 days.
+- Residents can select 1, 2, 3 or 4 weeks (7/14/21/28 days) or custom number of days; a new resident defaults to 4 weeks (28 days).
 - Money is allocated with integer arithmetic and largest remainder rounding so all shares sum exactly to the original bill.
 - Bills are stored atomically in a single database function. Payment status is preserved when overwriting a matching bill.
 
