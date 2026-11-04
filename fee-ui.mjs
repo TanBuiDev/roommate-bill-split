@@ -86,6 +86,15 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const result=calculation();
   label("fee-total-value",money(result.total||0));
   label("fee-error",result.valid?"":t(result.error));
+  const preview=byId("fee-breakdown-list");
+  preview.replaceChildren();
+  if(result.valid){
+   for(const person of result.breakdown){
+    const row=node("div","fee-breakdown-row");
+    row.append(node("span",null,person.resident_name),node("strong",null,money(person.amount)));
+    preview.append(row);
+   }
+  }else preview.append(node("p","fee-hint",t("Review your allocations")));
   byId("fee-save-period").disabled=!ownerAccess()||pending||!result.valid;
   byId("fee-share").disabled=!result.valid;
   for(let i=0;i<editing.length;i++){
