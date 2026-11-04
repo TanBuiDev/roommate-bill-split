@@ -77,7 +77,46 @@ if(missing.length){const defaults=missing.map((name,i)=>({id:id(),user_id:u.id,n
 const mark=await db.from("room_preferences").upsert({user_id:u.id,members_initialized:true},{onConflict:"user_id"});if(mark.error)toast("Chưa lưu được cài đặt khởi tạo.")}
 renderMembers();renderResults();renderHistory()}
 function showAuth(){user=null;people=[];history=[];draft={type:"electric",month:ym,amount:"",days:30};savedIds.clear();clearTimeout(saveTimer);$("#loading").classList.add("hidden");show("#auth",true);show("#workspace",false);show("#signout",false);$("#sync-chip").textContent="Chưa đăng nhập"}
-$("#login-form").addEventListener("submit",async e=>{e.preventDefault();if(authBusy)return;const email=$("#email").value.trim();if(!email)return;authBusy=true;$("#login-button").disabled=true;$("#authmsg").textContent="Đang gửi liên kết...";try{const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;$("#authmsg").textContent="Đã gửi liên kết! Hãy kiểm tra hộp thư (và Spam), sau đó mở liên kết trên thiết bị này."}catch(err){$("#authmsg").textContent="Không gửi được liên kết. Kiểm tra email và thử lại."}finally{authBusy=false;$("#login-button").disabled=false}});
+const loginCooldownKey="oghep-login-backoff-v1";
+let loginCooldownUntil=Number(localStorage.getItem(loginCooldownKey))||0;
+let loginCooldownTick=null;
+function refreshLoginButton(){
+ const remaining=Math.max(0,Math.ceil((loginCooldownUntil-Date.now())/1000));
+ const button=$("#login-button");
+ button.disabled=authBusy||remaining>0;
+ button.textContent=authBusy?"Đang gửi...":remaining>0?"Thử lại sau "+Math.ceil(remaining/60)+" phút":"Gửi liên kết đăng nhập";
+ if(remaining<=0&&loginCooldownTick){clearInterval(loginCooldownTick);loginCooldownTick=null;localStorage.removeItem(loginCooldownKey)}
+}
+function cooldownLogin(seconds){
+ loginCooldownUntil=Date.now()+seconds*1000;
+ localStorage.setItem(loginCooldownKey,String(loginCooldownUntil));
+ if(loginCooldownTick)clearInterval(loginCooldownTick);
+ loginCooldownTick=setInterval(refreshLoginButton,1000);
+ refreshLoginButton()
+}
+refreshLoginButton();
+if(loginCooldownUntil>Date.now())loginCooldownTick=setInterval(refreshLoginButton,1000);
+$("#login-form").addEventListener("submit",async e=>{
+ e.preventDefault();
+ if(authBusy||Date.now()<loginCooldownUntil)return;
+ const email=$("#email").value.trim();if(!email)return;
+ authBusy=true;refreshLoginButton();$("#authmsg").textContent="Đang gửi liên kết...";
+ try{
+  const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+  if(error)throw error;
+  $("#authmsg").textContent="Đã gửi yêu cầu. Hãy kiểm tra hộp thư, kể cả mục Thư rác, và mở liên kết đăng nhập.";
+  cooldownLogin(60);
+ }catch(err){
+  if(err?.status===429||err?.code==="over_email_send_rate_limit"||err?.code==="over_request_rate_limit"){
+   $("#authmsg").textContent="Máy chủ đã đạt giới hạn gửi email đăng nhập. Vui lòng đợi khoảng 30–60 phút rồi thử lại, không bấm liên tiếp.";
+   cooldownLogin(30*60);
+  }else if(err?.code==="email_address_not_authorized"||String(err?.message||"").toLowerCase().includes("email address not authorized")){
+   $("#authmsg").textContent="Địa chỉ email này chưa được phép nhận liên kết đăng nhập. Vui lòng liên hệ người quản lý website.";
+  }else{
+   $("#authmsg").textContent="Chưa gửi được liên kết đăng nhập. Vui lòng thử lại hoặc liên hệ người quản lý website.";
+  }
+ }finally{authBusy=false;refreshLoginButton()}
+});
 $("#signout").addEventListener("click",async()=>{const {error}=await db.auth.signOut();if(error)toast("Đăng xuất chưa thành công. Vui lòng thử lại.");else showAuth()});
 $("#add-member").addEventListener("click",()=>{if(people.length>=70){toast("Tối đa 70 người.");return}people.push({id:id(),name:"Người "+(people.length+1),mode:"w4",customDays:0});renderMembers();renderResults();scheduleMembers();const inputs=document.querySelectorAll(".member-name");inputs[inputs.length-1]?.focus();inputs[inputs.length-1]?.select()});
 $("#bill-type").addEventListener("change",e=>{draft.type=e.target.value;writeDraft();renderResults()});
