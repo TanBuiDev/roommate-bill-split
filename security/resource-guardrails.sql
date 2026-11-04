@@ -79,7 +79,7 @@ create trigger oghep_guard_invitation_creation
 
 -- Bound resident creation even when a client bypasses the UI.
 create or replace function app_private.guard_resident_creation()
-returns trigger language plpgsql security definer set search_path to '' as $
+returns trigger language plpgsql security definer set search_path to '' as $$
 declare v_uid uuid:=auth.uid();
 begin
   if v_uid is null then return new; end if;
@@ -95,7 +95,7 @@ begin
   end if;
   perform app_private.consume_quota('resident:create',new.apartment_id::text,100,86400);
   return new;
-end $;
+end $$;
 revoke all on function app_private.guard_resident_creation() from public, anon, authenticated;
 drop trigger if exists oghep_guard_resident_creation on public.apartment_residents;
 create trigger oghep_guard_resident_creation
