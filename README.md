@@ -1,17 +1,49 @@
 # Ở Ghép — Chia tiền hóa đơn
 
-Website miễn phí chia tiền điện, nước, Internet theo số ngày ở từng thành viên. Chọn nhanh 1–4 tuần, cả kỳ hoặc tùy chọn số ngày; tự lưu trên trình duyệt và xuất/nhập bản sao lưu JSON. Không cần backend hoặc database.
+Website miễn phí tính tiền điện, nước, Internet theo số ngày ở của mỗi người. Mã nguồn nằm trong một file `index.html`; không cần Node.js, backend hay trả phí hosting.
+
+## Chức năng
+
+- Chọn hóa đơn, nhập số tiền, chọn tháng và số ngày của kỳ.
+- Thêm/xóa người ở, chỉnh sửa tên; chọn **1, 2, 3, 4 tuần**, **Cả kỳ** hoặc **Tùy chọn ngày**.
+- Chia theo số ngày và phân bổ số đồng lẻ để tổng luôn khớp hóa đơn.
+- Sao chép kết quả gửi nhóm.
+- **Supabase Auth**: đăng nhập bằng magic link gửi tới email.
+- **Supabase Database**: tên người ở được tự lưu, hóa đơn được lưu theo tháng; đánh dấu từng người đã trả tiền.
+- Dữ liệu được bảo vệ bởi PostgreSQL Row Level Security; mỗi tài khoản chỉ thấy dữ liệu của mình.
+
+## Tài khoản dịch vụ
+
+- GitHub: https://github.com/TanBuiDev/roommate-bill-split
+- Supabase project: https://supabase.com/dashboard/project/loovjgylbookhouxjkaf
+- Supabase URL: https://loovjgylbookhouxjkaf.supabase.co
+- Cloudflare Pages project đã tạo: `roommate-bill-split` (hiện chưa có bản Pages triển khai thành công do Cloudflare Git installation báo lỗi).
+- Website chạy thử trên Cloudflare Workers: https://roommate-bill-split.devbui058.workers.dev/
+
+Chỉ có **publishable** Supabase key trong frontend, không sử dụng `service_role` hoặc secret key. RLS bắt buộc đăng nhập, bảo vệ dữ liệu khỏi tài khoản khác.
+
+## Thiết lập Supabase Auth (bắt buộc để email đăng nhập hoạt động)
+
+Mở **Supabase Dashboard → Authentication → URL Configuration**.
+
+- **Site URL**: `https://roommate-bill-split.devbui058.workers.dev`
+- **Redirect URLs**, thêm: `https://roommate-bill-split.devbui058.workers.dev/**`
+
+Khi Cloudflare Pages đã được triển khai, thêm tiếp domain `https://roommate-bill-split.pages.dev/**` vào Redirect URLs và có thể chuyển Site URL sang Pages.
+
+Đảm bảo **Email provider** được bật. Mặc định Supabase gửi Magic Link, miễn phí nhưng có giới hạn số email; nếu chạm giới hạn, đợi hoặc cấu hình SMTP riêng.
 
 ## Cloudflare Pages
 
-Framework preset: `None` · Build command: `exit 0` · Build output directory: `.` · Production branch: `main`.
+Lúc tích hợp tự động, Cloudflare API trả lỗi `There is an internal issue with your Cloudflare Pages Git installation` (HTTP 401). Cần kiểm tra https://github.com/settings/installations → **Cloudflare Workers and Pages** → Configure → Repository access → cấp quyền truy cập `roommate-bill-split`. Nếu Cloudflare vẫn báo lỗi, theo https://developers.cloudflare.com/pages/configuration/git-integration/troubleshooting/ thử cài đặt lại GitHub app; việc gỡ app có thể ảnh hưởng các dự án khác đang dùng auto-deploy.
 
-## Chạy thử
+Với Pages, cấu hình: **Framework preset** `None`, **Build command** `exit 0`, **Output directory** `.`, **Production branch** `main`. Có thể dùng Direct Upload nếu Git integration chưa sửa được, nhưng không có tự động triển khai khi push GitHub.
 
-```bash
-python3 -m http.server 8080
-```
+## Dữ liệu
 
-Mở http://localhost:8080. Kiểm thử: `node --test tests/calc.test.mjs`.
+- `public.room_members`: `id`, `user_id`, `name`, `sort_order`
+- `public.bill_history`: `id`, `user_id`, `bill_type`, `bill_month`, `amount`, `billing_days`, `people` (JSON chứa các khoản chia và trạng thái đã trả).
 
-**Dữ liệu chỉ lưu tại trình duyệt.** Không có đồng bộ thiết bị, không có truy vấn hoặc thanh toán EVN tự động. Việc chia theo ngày là quy ước phân bổ, không đo điện năng thực tế.
+Hai bảng có RLS và 4 policies CRUD riêng cho từng user. Mỗi kỳ hóa đơn được khóa theo `(user_id, bill_type, bill_month)`.
+
+Chia theo số ngày là **quy ước phân bổ**, không đo lượng điện thực tế. Website không kết nối EVN, không chuyển khoản hay thanh toán thực tế.
