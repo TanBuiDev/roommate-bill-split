@@ -218,7 +218,7 @@ function renderResidentTable(){
   fullTd.append(fullButton);row.append(fullTd);
   const td=el("td","custom-days-cell"),input=el("input","day-choice"+(p.mode==="custom"?" active":""));
   input.type="number";input.min="0";input.max=String(billingPeriod().days);input.inputMode="numeric";
-  input.placeholder=t("Days");input.disabled=!state.owner;
+  input.placeholder=t(window.matchMedia("(max-width: 767px)").matches?"Enter days":"Days");input.disabled=!state.owner;
   input.value=p.mode==="custom"?String(p.custom_days):"";
   input.setAttribute("aria-label",p.name+": "+t("Custom days"));
   input.addEventListener("focus",()=>{
