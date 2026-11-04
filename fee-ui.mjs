@@ -30,6 +30,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  let apartmentId=null,owner=false,residents=[],templates=[],periods=[],payments=[];
  let mode="simple",editing=[],expanded=new Set(),pending=false,loaded=false;
  let draft={month:nowMonth(),name:"Apartment fees"};
+ let draftSystemNameKey=null;
  const active=()=>getContext().apt?.id===apartmentId;
  const label=(id,text)=>{const x=byId(id);if(x)x.textContent=text};
  const visible=(id,show)=>{const x=byId(id);if(x)x.classList.toggle("hidden",!show)};
@@ -49,14 +50,19 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  const formatName=name=>t(name);
  const makeItem=(name="",method="days",data={})=>({
    id:uuid(),name,method:METHODS.includes(method)?method:"days",amount:Number(data.amount)||0,
-   people:deepCopy(data.people||{})
+   people:deepCopy(data.people||{}),
+   // Built-in template keys are translated only until the user edits that name.
+   systemNameKey:data.systemNameKey||null
  });
- const templateItems=source=>source.map(item=>
-   Array.isArray(item)?makeItem(item[0],item[1]):makeItem(item.name,item.method,item));
+ const templateItems=(source,system=false)=>source.map(item=>
+   Array.isArray(item)
+     ?makeItem(system?t(item[0]):item[0],item[1],{systemNameKey:system?item[0]:null})
+     :makeItem(item.name,item.method,item));
  const hasTemplates=()=>templates.length>0;
- const applyItemList=(items,title)=>{
+ const applyItemList=(items,title,systemTitleKey=null)=>{
    if(!ownerAccess())return;
-   editing=templateItems(items);
+   editing=templateItems(items,!!systemTitleKey);
+   draftSystemNameKey=systemTitleKey;
    draft.name=title||t("Apartment fees");
    byId("fee-period-name").value=draft.name;
    renderItems();
@@ -141,7 +147,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   for(const [index,item] of editing.entries()){
    const card=node("article","fee-item");
    const top=node("div","fee-item-top");
-   const name=feeNameField("Fee name",item.name,(value)=>{item.name=value;renderSummary()});
+   const name=feeNameField("Fee name",item.name,(value)=>{item.name=value;item.systemNameKey=null;renderSummary()});
    name.input.maxLength=100;
    const amount=feeNameField("Amount (VND)",item.amount?formatNumber(item.amount):"",(value,input)=>{
      const clean=stripNumber(value);
@@ -229,6 +235,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
       byId("fee-period-month").value=draft.month;
       byId("fee-period-name").value=draft.name;
       editing=templateItems(period.items);
+      draftSystemNameKey=null;
       renderItems();
       toast("Copied. Review amounts and people before saving.");
       byId("fee-editor").scrollIntoView({behavior:"smooth",block:"start"});
@@ -302,7 +309,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!apartment)return clear();
   const changed=apartmentId!==apartment;
   apartmentId=apartment;owner=ownerFlag;residents=roster||[];
-  if(changed){mode="simple";editing=[];expanded=new Set();draft={month:nowMonth(),name:"Apartment fees"};loaded=false}
+  if(changed){mode="simple";editing=[];expanded=new Set();draft={month:nowMonth(),name:"Apartment fees"};draftSystemNameKey=null;loaded=false}
   visible("fee-workspace",true);
   renderMode();
   const [periodResult,templateResult]=await Promise.all([
@@ -322,7 +329,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   if(!active())return;
   payments=fresh;loaded=true;
   feeNames();
-  if(!editing.length&&owner)applyItemList(SYSTEM_TEMPLATES[0].fees,t("Apartment fees"));
+  if(!editing.length&&owner)applyItemList(SYSTEM_TEMPLATES[0].fees,t("Apartment fees"),"Apartment fees");
   else if(owner)renderItems();
   byId("fee-period-month").value=draft.month;
   byId("fee-period-name").value=draft.name;
@@ -405,7 +412,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const selected=byId("fee-template-select").value;
   if(selected.startsWith("system:")){
    const builtin=SYSTEM_TEMPLATES.find(v=>v.id===selected);
-   if(builtin)applyItemList(builtin.fees,t(builtin.name));
+   if(builtin)applyItemList(builtin.fees,t(builtin.name),builtin.name);
   } else {
    const chosen=templates.find(v=>"saved:"+v.id===selected);
    if(chosen)applyItemList(chosen.definition,chosen.name);
@@ -417,12 +424,21 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   const current=draft.month;
   const prior=periods.filter(p=>p.bill_month<current).sort((a,b)=>b.bill_month.localeCompare(a.bill_month))[0]||periods[0];
   editing=templateItems(prior.items);
+  draftSystemNameKey=null;
   draft.name=prior.name;
   byId("fee-period-name").value=draft.name;
   renderItems();toast("Copied. Review amounts and people before saving.");
  }
  function retranslate(){
   if(!apartmentId)return;
+  // Only untouched names from built-in templates track the selected UI language.
+  for(const item of editing){
+   if(item.systemNameKey)item.name=t(item.systemNameKey);
+  }
+  if(draftSystemNameKey){
+   draft.name=t(draftSystemNameKey);
+   byId("fee-period-name").value=draft.name;
+  }
   feeNames();renderHistory();renderMode();
   if(owner)renderItems();
  }
@@ -438,7 +454,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   editing.push(makeItem("","days"));renderItems();
  });
  byId("fee-period-month").addEventListener("change",event=>{draft.month=event.target.value;renderItems()});
- byId("fee-period-name").addEventListener("input",event=>{draft.name=event.target.value});
+ byId("fee-period-name").addEventListener("input",event=>{draft.name=event.target.value;draftSystemNameKey=null});
  byId("fee-share").addEventListener("click",copyOrShare);
  byId("fee-save-period").addEventListener("click",savePeriod);
  byId("fee-save-template").addEventListener("click",saveTemplate);
