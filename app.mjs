@@ -189,6 +189,16 @@ async function removeResident(p){
   tone:"danger"
  });
  if(!confirmed)return;
+ if(p.user_id && state.members.some(m=>m.user_id===p.user_id)){
+  toast("Remove access before deleting this resident.");
+  return;
+ }
+ // Revoke pending invitations before removing a resident, preventing orphan invite links.
+ for(const invitation of state.invitations.filter(x=>x.resident_id===p.id && x.status==="pending")){
+  const result=await db.rpc("revoke_apartment_invitation",{p_invite_id:invitation.id});
+  if(result.error){errorNotice("Could not revoke this resident's invitation.",result.error);return}
+  invitation.status="revoked";
+ }
  clearTimeout(state.writeTimer);state.dirty.delete(p.id);
  const {error}=await db.from("apartment_residents").delete().eq("id",p.id).eq("apartment_id",state.apt.id);
  if(error)return errorNotice("Could not remove resident.",error);
