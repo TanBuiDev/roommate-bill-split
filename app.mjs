@@ -298,7 +298,7 @@ function checkMemberForm(needEmail){
 }
 async function createResident(name){
  const {data,error}=await db.from("apartment_residents").insert({
-  apartment_id:state.apt.id,name,mode:"custom",custom_days:4,sort_order:state.residents.length
+  apartment_id:state.apt.id,name,mode:"w4",custom_days:0,sort_order:state.residents.length
  }).select("id,apartment_id,user_id,name,mode,custom_days,sort_order").single();
  if(error)throw error;
  state.residents.push(data);
@@ -444,7 +444,7 @@ async function submitBulkMembers(event){
  try{
   const maxOrder=state.residents.reduce((n,r)=>Math.max(n,Number(r.sort_order)||0),-1);
   const payload=result.names.map((name,i)=>({
-   apartment_id:bulkDialogApartment,name,mode:"custom",custom_days:4,sort_order:maxOrder+i+1
+   apartment_id:bulkDialogApartment,name,mode:"w4",custom_days:0,sort_order:maxOrder+i+1
   }));
   const {data,error}=await db.from("apartment_residents").insert(payload)
    .select("id,apartment_id,user_id,name,sort_order,mode,custom_days");
@@ -616,7 +616,6 @@ function renderGate(){
  label("#invitation-message",t("Accept this invitation after signing in with the invited email address."));
 }
 function showGate(){
- stopApartmentWatch();
  state.apt=null;state.owner=false;
  show("#apartment-gate",true);show("#apartment-app",false);renderGate();
 }
@@ -671,69 +670,8 @@ async function loadUser(user,force=false,preferred=null){
  try{await work}finally{if(loadingUser===work)loadingUser=null}
 }
 
-/* Live database updates; realtime notifications plus a conservative polling fallback.
-   Background refreshes preserve draft amount, month and days being edited. */
-let watchedApartment=null;
-let apartmentChannel=null;
-let apartmentPoller=null;
-let apartmentRefreshTimer=null;
-let apartmentRefreshBusy=false;
-let apartmentRefreshAgain=false;
-function stopApartmentWatch(){
- if(apartmentRefreshTimer){clearTimeout(apartmentRefreshTimer);apartmentRefreshTimer=null}
- if(apartmentPoller){clearInterval(apartmentPoller);apartmentPoller=null}
- if(apartmentChannel){db.removeChannel(apartmentChannel);apartmentChannel=null}
- watchedApartment=null;
- apartmentRefreshAgain=false;
-}
-function watchApartment(id){
- if(watchedApartment===id)return;
- stopApartmentWatch();
- watchedApartment=id;
- const onChange=()=>scheduleApartmentRefresh(450);
- let channel=db.channel("oghep-household:"+id);
- for(const table of ["apartment_allocations","apartment_bills","apartment_residents","apartment_members","apartment_invitations"]){
-  // RLS restricts changes to data belonging to the signed-in apartment member.
-  channel=channel.on("postgres_changes",{event:"*",schema:"public",table},onChange);
- }
- apartmentChannel=channel.subscribe(status=>{
-  if(status==="SUBSCRIBED")scheduleApartmentRefresh(400);
- });
- apartmentPoller=setInterval(()=>{
-  if(document.visibilityState!=="hidden")scheduleApartmentRefresh(400);
- },20000);
-}
-function scheduleApartmentRefresh(delay=400){
- if(!state.user||!watchedApartment||state.apt?.id!==watchedApartment)return;
- clearTimeout(apartmentRefreshTimer);
- apartmentRefreshTimer=setTimeout(async()=>{
-  apartmentRefreshTimer=null;
-  if(!state.user||state.apt?.id!==watchedApartment)return;
-  const editingResident=!!document.activeElement?.closest?.("#members");
-  if(state.billSaving||state.dirty.size||state.pendingWrites||bulkDialogBusy||memberDialogBusy||editingResident){
-   scheduleApartmentRefresh(1000);
-   return;
-  }
-  if(apartmentRefreshBusy){apartmentRefreshAgain=true;return}
-  apartmentRefreshBusy=true;
-  const id=watchedApartment;
-  try{
-   await loadApartment(id,{preserveDraft:true,background:true});
-  }catch(err){console.warn("Apartment refresh deferred",err)}
-  finally{
-   apartmentRefreshBusy=false;
-   if(apartmentRefreshAgain){
-    apartmentRefreshAgain=false;
-    scheduleApartmentRefresh(500);
-   }
-  }
- },delay);
-}
-document.addEventListener("visibilitychange",()=>{
- if(document.visibilityState==="visible")scheduleApartmentRefresh(200);
-});
-window.addEventListener("focus",()=>scheduleApartmentRefresh(400));
-
+/* Apartment data is fetched only on sign-in, apartment selection, explicit actions,
+   or the user's Refresh button / browser reload. No background subscriptions or polling. */
 async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
@@ -767,7 +705,6 @@ async function loadApartment(id,options={}){
  for(const id of ["#bill-details-panel","#residents-panel","#summary-panel"])show(id,state.owner);
  if(state.owner&&(isNewApartment||options.resetDraft))blankDraft();
  renderResidentTable();renderHistory();
- watchApartment(id);
  return true;
 }
 
@@ -885,11 +822,11 @@ async function saveBill(){
   saved=true;
   // Bill allocations are snapshots; reset only the current roster after saving.
   const reset=await db.from("apartment_residents")
-   .update({mode:"custom",custom_days:4}).eq("apartment_id",apartmentId);
+   .update({mode:"w4",custom_days:0}).eq("apartment_id",apartmentId);
   if(reset.error)errorNotice("Bill saved, but default days could not be restored.",reset.error);
-  else toast("Bill saved. Resident days reset to 4 days.");
+  else toast("Bill saved. Resident weeks reset to 4 weeks.");
   if(state.apt?.id===apartmentId){
-   if(!reset.error)state.residents.forEach(p=>{p.mode="custom";p.custom_days=4});
+   if(!reset.error)state.residents.forEach(p=>{p.mode="w4";p.custom_days=0});
    await loadApartment(apartmentId,{resetDraft:true});
   }
  }catch(err){errorNotice(saved?"Unable to refresh. Check your connection.":"Could not save bill.",err)}
@@ -956,7 +893,6 @@ async function login(e){
  }
 }
 function signOutView(){
- stopApartmentWatch();
  state.loadSeq++;state.aptSeq++;state.user=null;state.apt=null;state.apts=[];state.owner=false;
  state.residents=[];state.bills=[];state.alloc={};state.dirty.clear();clearTimeout(state.writeTimer);
  state.authStatus="";label("#authmsg","");
