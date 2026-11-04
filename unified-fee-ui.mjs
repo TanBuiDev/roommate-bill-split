@@ -98,7 +98,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
   renderAll();
  }
  function setVisible(id,yes){el(id)?.classList.toggle("hidden",!yes)}
- const html=String.raw\`
+ const html=String.raw`
   <div class="ub-intro"><div>
     <h4 id="ub-heading">Monthly billing</h4>
     <p id="ub-caption">Add each bill, then select the charges to include in this month's settlement.</p>
@@ -153,7 +153,7 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
     <p id="ub-type-error" class="summary-error" role="alert"></p>
     <button class="button primary" type="button" id="ub-type-save">Save bill type</button>
    </div>
-  </dialog>\`;
+  </dialog>`;
  function install(){
   const pane=el("fee-editor");
   pane.innerHTML=html;
