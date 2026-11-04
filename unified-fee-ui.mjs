@@ -1,6 +1,7 @@
 import { METHODS } from "./fee-engine.mjs";
 import { calculateSelection, serializeSelection, hydrateSelection, getGroupMethod, applyGroupRule } from "./unified-billing-core.mjs";
 import { openHistoryDetail, closeHistoryDetail, historyMenu } from "./history-detail-ui.mjs";
+import { formatBillMessage, savedBillGroups, savedResidentDays } from "./bill-message.mjs";
 
 /* Unified monthly billing editor. All mutations are explicit user actions. */
 const BUILTINS = [
@@ -418,16 +419,19 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  function summarize(){
   const result=calculation();if(!result.valid)return "";
-  const lines=[];
-  if(dirty||!existing())lines.push(t("Draft — not saved"),"");
-  lines.push(t("Monthly billing")+" "+month,t("Total")+": "+money(result.total),"");
-  for(const g of groups.filter(x=>x.enabled)){
-   lines.push(displayGroupName(g)+": "+money(groupTotal(g)));
-   for(const f of g.fees)lines.push("  "+displayFeeName(f,g)+": "+money(f.amount));
-  }
-  lines.push("",t("Per-person total")+":");
-  for(const r of result.breakdown)lines.push(r.resident_name+": "+money(r.amount));
-  return lines.join("\n");
+  const daysById=new Map(residents.map(r=>[r.id,residentDays(r)]));
+  return formatBillMessage({
+   month,apartment:getContext().apt?.name||"",
+   draft:dirty||!existing(),
+   charges:groups.filter(g=>g.enabled).map(g=>({
+    name:displayGroupName(g),
+    fees:g.fees.map(f=>({name:displayFeeName(f,g),amount:Number(f.amount)||0}))
+   })),
+   people:result.breakdown.map(p=>({
+    id:p.resident_id,name:p.resident_name,amount:p.amount,days:daysById.get(p.resident_id)
+   })),
+   total:result.total
+  },{t,money});
  }
  async function writeClipboard(textValue){
   if(!textValue)return;
@@ -446,14 +450,18 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
  }
  async function shareCurrent(){await shareText(summarize(),t("Monthly billing"))}
  function savedText(period){
-  const lines=[period.name+" · "+period.bill_month,t("Total")+": "+money(period.total),""];
-  for(const item of period.items||[]){
-   const original=item.original_amount??item.amount;
-   lines.push((item.enabled===false?"["+t("Excluded")+"] ":"")+t(item.name)+": "+money(original));
-  }
-  lines.push("",t("Per-person total")+":");
-  for(const pay of payments.filter(x=>x.period_id===period.id))lines.push(pay.resident_name+": "+money(pay.amount));
-  return lines.join("\n");
+  const daysById=savedResidentDays(period.items||[]);
+  return formatBillMessage({
+   month:period.bill_month,apartment:getContext().apt?.name||"",
+   charges:savedBillGroups(period.items||[]).map(g=>({
+    name:t(g.name),fees:g.fees.map(f=>({name:t(f.name),amount:f.amount}))
+   })),
+   people:payments.filter(p=>p.period_id===period.id).map(p=>({
+    id:p.resident_id,name:p.resident_name,amount:p.amount,
+    days:daysById[p.resident_id]
+   })),
+   total:period.total
+  },{t,money});
  }
  function openPeriodDetail(period){
   const detail=node("div","fee-history-details history-detail-body");
@@ -563,7 +571,8 @@ export function createFeeUI({db,getContext,t,money,toast,errorNotice,confirmActi
    if(!confirmed)return;
   }
   pending=true;renderSummary();
-  const payload=serializeSelection(groups,result.lines);
+  const daysByResident=Object.fromEntries(residents.map(r=>[r.id,residentDays(r)]));
+  const payload=serializeSelection(groups,result.lines,daysByResident);
   try{
    const {error}=await db.rpc("save_apartment_fee_period",{
     p_apartment_id:apt,p_month:month,p_name:BILL_NAME,p_items:payload
