@@ -1127,3 +1127,7 @@ h3{font-size:1.2rem;font-weight:700}
  .ub-summary-total{display:grid}
  .ub-bill-row{padding:10px;gap:6px}
 }
+
+/* Preserve edit access for historical standalone bills without an extra main tab. */
+body.legacy-edit-active #bill-details-panel,
+body.legacy-edit-active #summary-panel{display:block!important}
