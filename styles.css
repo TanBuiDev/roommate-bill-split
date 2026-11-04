@@ -1257,3 +1257,16 @@ body.app-active #bill-history-current #fee-refresh{display:none!important}
  .bill-days-toggle-side{gap:5px}
  .bill-days-count{max-width:82px}
 }
+
+/* At the 681–767px tablet range, preserve the card layout and keep the
+   delete button anchored to the resident row's top-right (ninth cell). */
+@media(min-width:681px) and (max-width:767px){
+ body.app-active .bill-resident-board .member-table{min-width:0!important;display:block}
+ body.app-active .bill-resident-board .member-table td:nth-child(8){display:none!important}
+ body.app-active .bill-resident-board .member-table td:nth-child(9){
+  position:absolute;top:10px;right:9px;min-width:38px;min-height:38px;
+  display:flex;align-items:center;justify-content:center
+ }
+ body.app-active .bill-resident-board .member-table tr td:nth-child(6),
+ body.app-active .bill-resident-board .member-table tr td:nth-child(7){grid-column:span 2}
+}
