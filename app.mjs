@@ -139,7 +139,7 @@ function renderResidentTable(){
   const row=el("tr"),cell=el("td");
   const name=el("input","member-name");name.value=p.name;name.maxLength=70;name.disabled=!state.owner;
   name.setAttribute("aria-label",t("Resident")+" "+(index+1));
-  name.addEventListener("input",()=>{p.name=name.value;changedResident(p)});
+  name.addEventListener("input",()=>{p.name=name.value;changedResident(p);renderHouseholdList()});
   name.addEventListener("blur",()=>{if(!p.name.trim()){p.name=t("Resident")+" "+(index+1);name.value=p.name;changedResident(p)}});
   cell.append(name);row.append(cell);
   for(let week=1;week<=4;week++){
@@ -302,7 +302,18 @@ async function sendInviteForResident(resident,email){
  const {error:mailError}=await db.auth.signInWithOtp({
   email,options:{emailRedirectTo:state.inviteLink}
  });
- await refreshInvites();
+ try {
+  await refreshInvites();
+ } catch(refreshError) {
+  // The invitation is already created. Keep an actionable fallback even if list refresh fails.
+  console.error("Could not refresh the invitation list",refreshError);
+  state.invitations=[
+   {id:data.id,resident_id:resident.id,invited_email:email,status:"pending",
+    expires_at:new Date(Date.now()+7*86400000).toISOString(),created_at:new Date().toISOString(),accepted_by:null},
+   ...state.invitations.filter(x=>!(x.resident_id===resident.id&&x.status==="pending"))
+  ];
+  renderHouseholdList();
+ }
  if(mailError){
   show("#invite-fallback",true);
   errorNotice("Invitation created but email delivery failed. Copy the private invitation link below.",mailError);
