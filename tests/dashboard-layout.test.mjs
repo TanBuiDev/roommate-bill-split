@@ -21,6 +21,7 @@ class FakeElement {
  insertBefore(element,before){this.#remove(element);const idx=before?this.children.indexOf(before):-1;if(before&&idx<0)throw Error("Missing reference child");this.children.splice(idx<0?this.children.length:idx,0,element);element.parentElement=this}
  #remove(element){const parent=element.parentElement;if(parent){const i=parent.children.indexOf(element);if(i>=0)parent.children.splice(i,1);element.parentElement=null}}
  setAttribute(name,value){this.attributes[name]=value}
+ closest(selector){let current=this;while(current){if(matches(current,selector))return current;current=current.parentElement}return null}
  querySelector(selector){return query(this,selector,false)[0]||null}
 }
 const matches=(element,segment)=>{
