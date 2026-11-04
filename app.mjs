@@ -5,7 +5,7 @@ const SUPA_KEY="sb_publishable_i-HRVZm2rY7SUl1w-iJAdA_KAPi2H8h";
 const fromLink=new URL(location.href).searchParams.get("invite");
 if(fromLink&&/^[a-f0-9]{64}$/.test(fromLink)){
  sessionStorage.setItem("oghep-invite",fromLink);
- history.replaceState(null,"",location.pathname+location.hash);
+ const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete("invite");history.replaceState(null,"",cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);
 }
 const db=createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=s=>document.querySelector(s);
