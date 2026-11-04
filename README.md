@@ -72,10 +72,14 @@ No JavaScript secrets should ever be committed. The frontend contains only a pub
 
 ## Saved bill exports and mobile usability
 
+- The top sharing controls use an in-app browser clipboard fallback when native sharing is unavailable; users can also share or copy each individual saved bill in its history card.
+- Editing an existing bill restores its saved resident day selections before recalculating, but **payment statuses reset to Unpaid on overwrite**. Loading a bill for editing alone does not change stored payment status.
+
+
 - Saved electricity/water/internet/other bills have their own **Copy bill / Share bill** actions in history. The content is generated from saved allocations, including resident names, days and exact amounts, **not** today's editable roster or reset inputs.
 - When a new bill is saved and the editing form is cleared, the top **Copy / Share** actions stay available by selecting the latest saved bill (prefer the just-saved record), with a clearly visible label showing which saved bill will be shared.
 - Multi-fee apartment periods also expose **Copy bill / Share bill** actions in their saved history.
-- Mobile screens use a two-column layout for Copy / Share and a full-width Save button. History controls use a responsive grid and compact, readable status rows. Resident card captions are translated using actual DOM text rather than hardcoded CSS pseudo-content.
+- On mobile, bill export/save controls use a single-column stack below 430px, with touch-sized week controls and two-column history action buttons. Larger screens retain a more compact two-column layout for Copy / Share and a full-width Save button. History controls use a responsive grid and compact, readable status rows. Resident card captions are translated using actual DOM text rather than hardcoded CSS pseudo-content.
 - The Web Share API is used when supported; clipboard copying falls back to a selected-text copy on embedded browsers when possible.
 
 ## Shared modal
@@ -162,7 +166,7 @@ Legacy tables remain unchanged: room_members, room_preferences, bill_history. A 
 - Number grouping while typing; no invalid amount; 28/29/30/31 day calendar months.
 - Week shortcuts and custom-day values; persistence across reload.
 - Exact sharing across seven equal residents, mixed weeks, zero days and rounding.
-- Save, reload, overwrite, delete bills; preserve status; report paid, confirm receipt.
+- Save and reload bills; overwrite an existing bill and verify every old `confirmed`/`submitted` payment status resets to `unpaid`; delete bills; report paid and confirm receipt. Do not change existing payment statuses without an explicit overwrite.
 - Mobile layout down to 320px; keyboard labels; no emoji or public repository links.
 - End-to-end authentication and multi-user invitation need real browser accounts to verify fully.
 
