@@ -827,3 +827,37 @@ h3{font-size:1.2rem;font-weight:700}
  .paid-row{gap:8px}
  .paid-row .payment-badge{max-width:115px;font-size:.67rem}
 }
+
+
+/* Saved multi-fee bills use the same mobile action grid as regular bills. */
+@media(max-width:600px){
+ .fee-history-card{min-width:0}
+ .fee-history-summary{gap:10px;padding:14px}
+ .fee-history-summary>div:first-child{min-width:0;overflow-wrap:anywhere}
+ .fee-history-summary>strong{overflow-wrap:anywhere}
+ .fee-history-actions{
+  width:100%;min-width:0;
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+ }
+ .fee-history-actions .mini{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:0;min-height:42px;width:100%;
+  padding:9px 8px;line-height:1.3;
+  text-align:center;white-space:normal;overflow-wrap:anywhere;
+ }
+ .fee-history-details{padding:13px}
+ .fee-history-payment{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:9px;
+  padding:12px 0;
+ }
+ .fee-history-payment>div:first-child{min-width:0;overflow-wrap:anywhere}
+ .fee-history-payment-actions{
+  display:flex;flex-direction:column;align-items:flex-end;
+  gap:7px;max-width:145px;
+ }
+ .fee-history-payment-actions .payment-badge{
+  box-sizing:border-box;white-space:normal;text-align:center;overflow-wrap:anywhere;
+  padding:7px 10px;font-size:.7rem;line-height:1.35;
+ }
+ .fee-history-payment-actions .mini{white-space:normal;line-height:1.3}
+}
