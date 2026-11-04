@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { allocateWeighted, calculateLine, calculatePeriod } from "../fee-engine.mjs";
-import { calculateSelection, serializeSelection, hydrateSelection, countPeriodLines } from "../unified-billing-core.mjs";
+import { calculateSelection, serializeSelection, hydrateSelection, countPeriodLines, getGroupMethod, applyGroupRule } from "../unified-billing-core.mjs";
 
 const residents=[{id:"a",name:"An",days:30},{id:"b",name:"Bình",days:20},{id:"c",name:"Cường",days:10}];
 const day=r=>r.days;
@@ -78,4 +78,88 @@ test("zero quantity means the resident does not pay parking",()=>{
  assert.equal(calc.valid,true);
  assert.deepEqual(calc.breakdown.map(x=>x.amount),[50000]);
  assert.deepEqual(calc.breakdown.map(x=>x.resident_id),["b"]);
+});
+
+
+test("Default divides the full bill by section A days, ignoring hidden legacy unchecked flags",()=>{
+ const groups=[group("water","Cold water",true,[
+  fee("w","Cold water",350000,"days",{a:{included:false},b:{included:true}}),
+  fee("x","Drainage and wastewater",50000,"days",{a:{included:false}})
+ ])];
+ const out=calculateSelection(groups,residents,day);
+ assert.equal(out.valid,true);
+ assert.equal(out.total,400000);
+ assert.deepEqual(out.breakdown.map(x=>x.amount),[200000,133333,66667]);
+ const snapshot=serializeSelection(groups,out.lines);
+ assert.ok(snapshot.every(x=>!Object.values(x.people).some(p=>p.included===false)));
+ assert.deepEqual(snapshot.map(x=>x.method),["days","days"]);
+});
+
+test("One equal-sharing rule selects residents once for all subfees",()=>{
+ const groups=[{...group("management","Management",true,[
+  fee("indoor","Indoor",101,"equal"),fee("outdoor","Outdoor",29,"equal")]),
+  people:{a:{included:true},b:{included:false},c:{included:true}}}];
+ const calculated=calculateSelection(groups,residents,day);
+ assert.equal(calculated.valid,true);
+ assert.equal(calculated.total,130);
+ assert.deepEqual(calculated.breakdown.map(x=>[x.resident_id,x.amount]),[["a",65],["c",65]]);
+ const snapshot=serializeSelection(groups,calculated.lines);
+ assert.ok(snapshot.every(item=>item.group_people.b.included===false));
+});
+
+test("Quantity belongs to the whole bill and allocates two separate items exactly",()=>{
+ const groups=[{...group("parking","Parking",true,[
+  fee("motorcycle","Bike",99991,"quantity"),fee("parking-extra","Additional",11,"quantity")]),
+  people:{a:{quantity:2},b:{quantity:1},c:{quantity:0}}}];
+ const result=calculateSelection(groups,residents,day);
+ assert.equal(result.valid,true);assert.equal(result.total,100002);
+ assert.deepEqual(result.breakdown.map(x=>x.amount),[66668,33334]);
+ const snapshot=serializeSelection(groups,result.lines);
+ assert.equal(snapshot.reduce((s,x)=>s+x.allocations.reduce((a,p)=>a+p.share,0),0),100002);
+ assert.ok(snapshot.every(x=>x.people.a.quantity===2));
+});
+
+test("Manual whole-bill amounts are split across subfees without losing any đồng",()=>{
+ const groups=[{...group("water","Cold water",true,[
+  fee("w","Cold water",350000,"manual"),
+  fee("x","Drainage and wastewater",50000,"manual")]),
+  people:{a:{manual:250001},b:{manual:100000},c:{manual:49999}}}];
+ const result=calculateSelection(groups,residents,day);
+ assert.equal(result.valid,true);assert.equal(result.total,400000);
+ assert.deepEqual(result.breakdown.map(p=>p.amount),[250001,100000,49999]);
+ const snapshots=serializeSelection(groups,result.lines);
+ assert.deepEqual(snapshots.map(x=>x.allocations.reduce((sum,p)=>sum+p.share,0)),[350000,50000]);
+ assert.equal(snapshots.reduce((sum,x)=>sum+Object.values(x.people).reduce((a,p)=>a+(p.manual||0),0),0),400000);
+ const hydrated=hydrateSelection(snapshots);
+ assert.deepEqual(hydrated[0].people,groups[0].people);
+ assert.deepEqual(calculateSelection(hydrated,residents,day).breakdown.map(p=>p.amount),[250001,100000,49999]);
+});
+
+test("Switching to Default removes invisible old exclusions but retains subfee amounts",()=>{
+ const grp=group("water","Cold water",true,[fee("w","Water",50000,"equal",{a:{included:false}})]);
+ grp.people={a:{included:false}};
+ assert.equal(getGroupMethod(grp),"equal");
+ applyGroupRule(grp,"days");
+ assert.equal(getGroupMethod(grp),"days");
+ assert.equal(grp.fees[0].amount,50000);
+ assert.equal("included" in grp.fees[0].people.a,false);
+ assert.deepEqual(grp.people,{});
+ assert.equal(calculateSelection([grp],residents,day).total,50000);
+});
+
+test("Historic mixed-rule rows retain their original rules until the user chooses a new method",()=>{
+ const historic=[
+  {id:"one",name:"Water",category_id:"water",category_name:"Cold water",method:"days",amount:180000,people:{}},
+  {id:"two",name:"Service",category_id:"water",category_name:"Cold water",method:"equal",amount:60000,people:{}}
+ ];
+ const hydrated=hydrateSelection(historic);
+ assert.equal(getGroupMethod(hydrated[0]),"mixed");
+ const preserved=calculateSelection(hydrated,residents,day);
+ assert.equal(preserved.valid,true);
+ assert.equal(preserved.total,240000);
+ const copy=hydrateSelection(historic,true);
+ assert.equal(getGroupMethod(copy[0]),"mixed");
+ assert.deepEqual(copy[0].fees.map(x=>x.amount),[0,0]);
+ applyGroupRule(copy[0],"days");
+ assert.equal(getGroupMethod(copy[0]),"days");
 });
