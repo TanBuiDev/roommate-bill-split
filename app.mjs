@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { confirmAction } from "./ui-modal.mjs";
-import { createFeeUI } from "./fee-ui.mjs";
+import { createFeeUI } from "./unified-fee-ui.mjs";
 import { initI18n, t, setLanguage, onLanguageChange, getLocale } from "./i18n/index.mjs";
 initI18n();
 const SITE="https://oghep.pages.dev";
@@ -27,6 +27,7 @@ const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invi
  loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false,justSavedBillId:null};
 const feeUI=createFeeUI({
  db,getContext:()=>state,t,money,toast,errorNotice,confirmAction,nowMonth,
+ onMonthChange:()=>renderResidentTable(),
  onSaved:async(apartmentId)=>{
   // Preserve saved charge snapshots. Reset only the current resident preferences.
   const {error}=await db.from("apartment_residents")
@@ -46,7 +47,8 @@ function authMessage(message){state.authStatus=message;label("#authmsg",t(messag
 const isOwner=()=>state.owner;
 const currentAptKey=()=>("oghep-active:"+state.user.id);
 function billingPeriod(){
- const [year,month]=state.draft.month.split("-").map(Number);
+ const currentPeriodMonth=document.body.classList.contains("legacy-edit-active")?state.draft.month:(feeUI.getMonth?.()||state.draft.month);
+ const [year,month]=String(currentPeriodMonth).split("-").map(Number);
  const defaultDays=year>=1900&&year<=2100&&month>=1&&month<=12?new Date(year,month,0).getDate():30;
  const start=state.draft.start,end=state.draft.end;
  if(!start&&!end)return {valid:true,days:defaultDays,start:null,end:null};
@@ -162,6 +164,7 @@ function savePendingResidents(){
 }
 function changedResident(p){
  if(!state.owner)return;
+ feeUI.refresh?.();
  state.dirty.set(p.id,{...p});
  clearTimeout(state.writeTimer);state.writeTimer=setTimeout(savePendingResidents,650);
 }
@@ -727,7 +730,7 @@ async function loadApartment(id,options={}){
  const a=state.apts.find(x=>x.id===id);
  if(!a)return showGate();
  const isNewApartment=state.apt?.id!==id;
- if(isNewApartment)state.justSavedBillId=null;
+ if(isNewApartment){state.justSavedBillId=null;document.body.classList.remove("legacy-edit-active")};
  const seq=++state.aptSeq;
  state.apt=a;state.owner=a.owner_id===state.user?.id;
  localStorage.setItem("oghep-active:"+state.user.id,a.id);
@@ -849,6 +852,7 @@ async function loadSavedBill(bill){
    resident.custom_days=Math.max(0,Math.trunc(Number(saved.custom_days)||0));
   }
  }
+ document.body.classList.add("legacy-edit-active");
  setDraft();renderResidentTable();
  $("#bill-details-panel").scrollIntoView({behavior:"smooth",block:"start"});
  toast("Saved days loaded for editing. Replacing the bill resets payment statuses.");
@@ -902,6 +906,7 @@ async function saveBill(){
   if(reset.error)errorNotice("Bill saved, but default days could not be restored.",reset.error);
   else toast("Bill saved. Resident weeks reset to 4 weeks.");
   if(state.apt?.id===apartmentId){
+   document.body.classList.remove("legacy-edit-active");
    if(!reset.error)state.residents.forEach(p=>{p.mode="w4";p.custom_days=0});
    await loadApartment(apartmentId,{resetDraft:true});
   }
@@ -1122,6 +1127,14 @@ for(const input of ["#period-start","#period-end"]){
 $("#copy").addEventListener("click",copyBreakdown);
 $("#share").addEventListener("click",shareBreakdown);
 $("#save").addEventListener("click",saveBill);
+/* Legacy single-bill editor is available only when editing an old saved bill. */
+const legacyClose=el("button","mini",t("Close legacy editor"));
+legacyClose.type="button";legacyClose.id="legacy-editor-close";
+$("#bill-details-panel .panel-header").append(legacyClose);
+legacyClose.addEventListener("click",async()=>{
+ document.body.classList.remove("legacy-edit-active");
+ if(state.apt?.id)await loadApartment(state.apt.id,{preserveDraft:true});
+});
 $("#refresh-history").addEventListener("click",async()=>{
  if(!state.apt||!state.user)return;
  const button=$("#refresh-history"),id=state.apt.id;

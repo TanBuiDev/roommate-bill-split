@@ -1,0 +1,28 @@
+name: Unified billing regression
+
+on:
+  push:
+    branches: [main, feat/unified-billing-flow]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.mjs
+          node --check fee-engine.mjs
+          node --check unified-billing-core.mjs
+          node --check unified-fee-ui.mjs
+          node --check i18n/dictionary.mjs
+      - name: Check billing calculations
+        run: node --test tests/unified-billing.test.mjs

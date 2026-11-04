@@ -102,7 +102,21 @@ The application uses `confirmAction({title, message, confirmText, cancelText, to
 - Branded confirmation modals translate buttons, titles, messages and accessibility labels; labels and notices in the app also use the same dictionary.
 - **Authentication email templates are configured separately in the server's email settings.** This switch does not automatically translate emails sent by that service.
 
-## Reusable multi-fee templates and billing periods
+
+## Unified monthly billing (new editor)
+
+- The visible bill editor is unified: one month, many bill categories, one selected-total and one resident breakdown. The old Simple/Multi tab switch is hidden. Older single bills and payment history remain readable; existing database rows are not migrated or deleted.
+- Default bill categories: Electricity; Cold water (two subfees: Cold water + one combined "Drainage and wastewater treatment (XLNT)"); Management (Indoor + Outdoor); Building committee remuneration (Remuneration + Operating contribution); Motorcycle parking; Internet; Rent; Shared living costs.
+- Click **Create custom bill type** to add an apartment-specific category with one or more subfees and a default sharing rule; built-in categories are read-only. Categories are stored as definitions in the existing owner-only \`apartment_fee_templates\` table. Saved history is not rewritten when a definition is edited or deleted.
+- Choosing the same category twice opens its existing draft instead of creating a duplicate. Each bill can contain several individual fees, and each fee may use \`days\`, \`equal\`, \`quantity\`, or \`manual\` allocation.
+- Adding a bill checks it by default. Unchecking excludes the full bill from the selected total and resident shares **without losing entered subfees**. In the stored \`apartment_fee_periods.items\` snapshot, unchecked subfees use \`amount=0\`, \`original_amount=<entered>\`, \`enabled=false\`, and \`allocations=[]\`; existing \`save_apartment_fee_period\` validation continues to work without schema changes.
+- Saved monthly settlements use the reserved period name \`Monthly summary\` and are unique per apartment and month. Overwriting warns that payment confirmations reset, as in the previous implementation. Previous multi-fee periods retain their separate names and remain visible in history.
+- Current editable draft is cached in sessionStorage per apartment and month. Explicitly copying a previous period clears the copied amounts, preserving only fee names and sharing rules.
+- The shared Residents & days board remains available for selecting 1–4 weeks, custom days and Full period. The new editor's month controls the Full period calendar-day count. Old single-bill editor and its misleading standalone summary are hidden, but historical single-bill records stay readable.
+- The client-side pure module \`unified-billing-core.mjs\` encapsulates selected-item calculation and snapshot conversion. Test suite: \`node --test tests/unified-billing.test.mjs\`.
+- **Deployment:** Cloudflare Pages remains Direct Upload. GitHub commits do not deploy automatically; after merging and testing, deploy the repository root with \`npx wrangler pages deploy . --project-name oghep --branch main\` using authorized Cloudflare credentials.
+
+## Reusable multi-fee templates and billing periods (legacy implementation)
 
 The existing **simple bill** workflow remains unchanged. Apartment owners can switch the billing editor to **Multi-fee period**. Members may view saved multi-fee periods and payment status, but only an owner can create, edit or delete fee periods and personal templates.
 
