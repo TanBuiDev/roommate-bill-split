@@ -127,3 +127,74 @@ create index if not exists oghep_invitation_resident_idx
 
 comment on table app_private.request_quotas is
   'Fixed-window successful-write quotas; private, inaccessible to browser roles. Failed transactions roll back attempted quota updates.';
+
+-- Keep payment statuses for byte-identical saves and automatic retries.
+CREATE OR REPLACE FUNCTION public.save_apartment_fee_period(p_apartment_id uuid, p_month text, p_name text, p_items jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+ v_fee jsonb;v_share jsonb;v_amount bigint;v_sum bigint;v_total bigint:=0;
+ v_key text;v_share_value bigint;v_period uuid;v_bill_name text;
+ v_payers jsonb;v_uid uuid:=auth.uid();
+begin
+ if v_uid is null or not app_private.is_owner(p_apartment_id) then raise exception 'Not authorized to save a period';end if;
+ if p_month !~ '^[0-9]{4}-(0[1-9]|1[0-2])$' then raise exception 'Invalid month';end if;
+ v_bill_name:=btrim(coalesce(p_name,''));
+ if length(v_bill_name) not between 2 and 100 then raise exception 'Invalid period name';end if;
+ if jsonb_typeof(p_items) is distinct from 'array' or jsonb_array_length(p_items) not between 1 and 30 then raise exception 'Expected 1 to 30 charge lines';end if;
+ for v_fee in select value from jsonb_array_elements(p_items) loop
+  if length(btrim(coalesce(v_fee->>'name',''))) not between 1 and 100
+   or coalesce(v_fee->>'method','') not in ('days','equal','quantity','manual')
+   or coalesce(v_fee->>'amount','') !~ '^[0-9]{1,13}$'
+   or jsonb_typeof(v_fee->'allocations') is distinct from 'array'
+  then raise exception 'Malformed charge line';end if;
+  v_amount:=(v_fee->>'amount')::bigint;
+  if v_amount>1000000000000 then raise exception 'Charge too large';end if;
+  v_sum:=0;
+  for v_share in select value from jsonb_array_elements(v_fee->'allocations') loop
+   v_key:=v_share->>'resident_id';
+   if coalesce(v_key,'') !~ '^[0-9a-fA-F-]{36}$' or
+      coalesce(v_share->>'share','') !~ '^[0-9]{1,13}$'
+   then raise exception 'Invalid allocation';end if;
+   if not exists(select 1 from public.apartment_residents r
+     where r.id=v_key::uuid and r.apartment_id=p_apartment_id)
+   then raise exception 'Allocation resident does not belong to this apartment';end if;
+   v_share_value:=(v_share->>'share')::bigint;
+   v_sum:=v_sum+v_share_value;
+  end loop;
+  if v_sum<>v_amount then raise exception 'Allocation does not match charge total';end if;
+  v_total:=v_total+v_amount;
+ end loop;
+ if v_total<=0 or v_total>1000000000000 then raise exception 'Invalid period total';end if;
+ -- Prevent duplicate individual allocations within a charge.
+ if exists(
+   select 1 from jsonb_array_elements(p_items) fee,
+     lateral jsonb_array_elements(fee.value->'allocations') alloc
+   group by fee.value->>'id',alloc.value->>'resident_id' having count(*)>1
+ ) then raise exception 'Duplicate resident within charge';end if;
+ perform 1 from public.apartments where id=p_apartment_id for update;
+ -- Idempotent retry: unchanged saved period must preserve payment confirmations.
+ select id into v_period from public.apartment_fee_periods
+  where apartment_id=p_apartment_id and bill_month=p_month
+    and name=v_bill_name and items=p_items and total=v_total;
+ if found then return v_period; end if;
+ insert into public.apartment_fee_periods(apartment_id,bill_month,name,items,total,created_by)
+ values(p_apartment_id,p_month,v_bill_name,p_items,v_total,v_uid)
+ on conflict(apartment_id,bill_month,name) do update
+   set items=excluded.items,total=excluded.total,updated_at=now()
+ returning id into v_period;
+ -- A changed charge breakdown invalidates prior payment confirmations.
+ delete from public.apartment_fee_payments where period_id=v_period;
+ insert into public.apartment_fee_payments(period_id,resident_id,resident_name,amount)
+ select v_period,r.id,r.name,sum((allocation.value->>'share')::bigint)
+ from jsonb_array_elements(p_items) fee
+ cross join lateral jsonb_array_elements(fee.value->'allocations') allocation
+ join public.apartment_residents r on r.id=(allocation.value->>'resident_id')::uuid and r.apartment_id=p_apartment_id
+ group by r.id,r.name
+ having sum((allocation.value->>'share')::bigint)>0;
+ return v_period;
+end $function$
+;
