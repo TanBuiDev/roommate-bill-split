@@ -23,7 +23,7 @@ const nowMonth=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMo
 const state={user:null,apts:[],apt:null,owner:false,residents:[],members:[],invitations:[],bills:[],alloc:{},
  shown:new Set(),loadSeq:0,aptSeq:0,pendingLoad:null,dirty:new Map(),writeTimer:0,writeChain:Promise.resolve(),
  draft:{type:"electric",month:nowMonth(),amount:"",start:"",end:""},inviteLink:"",
- loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:""};
+ loginBusy:false,loginUntil:Number(localStorage.getItem("oghep-login-backoff-v1")||0),authStatus:"",billSaving:false};
 let toastTimer=0;
 function toast(message){
  const element=$("#toast");element.textContent=t(message);element.classList.add("show");
@@ -102,8 +102,9 @@ function renderResult(){
   if(days)days.textContent=t("{count} days",{count:occupiedDays(resident)});
  }
  label("#validation",t(validateBill()));
- $("#save").disabled=!!validateBill();
+ $("#save").disabled=state.billSaving||!!validateBill();
  $("#copy").disabled=!r.length||!!validateBill();
+ $("#share").disabled=!r.length||!!validateBill();
 }
 function setDraft(){
  $("#bill-type").value=state.draft.type;
@@ -295,7 +296,7 @@ function checkMemberForm(needEmail){
 }
 async function createResident(name){
  const {data,error}=await db.from("apartment_residents").insert({
-  apartment_id:state.apt.id,name,mode:"w4",custom_days:0,sort_order:state.residents.length
+  apartment_id:state.apt.id,name,mode:"custom",custom_days:4,sort_order:state.residents.length
  }).select("id,apartment_id,user_id,name,mode,custom_days,sort_order").single();
  if(error)throw error;
  state.residents.push(data);
@@ -374,6 +375,95 @@ async function memberFormAction(invite){
   updateMemberFormButtons();
  }
 }
+
+/* Batch onboarding: names only. Inserted in a single PostgREST statement, with no invitations. */
+let bulkDialogBusy=false;
+let bulkDialogApartment=null;
+let bulkDialogOrigin=null;
+function normalizeResidentName(name){
+ return name.trim().normalize("NFC").replace(/\s+/g," ");
+}
+function compareResidentName(name){
+ return normalizeResidentName(name).toLocaleLowerCase("vi");
+}
+function parseBulkNames(input,existing=state.residents){
+ const names=String(input||"").split(/[\n,;]+/).map(normalizeResidentName).filter(Boolean);
+ if(!names.length)return {names,error:"Enter at least one name."};
+ if(names.some(n=>n.length>70))return {names,error:"Names cannot exceed 70 characters."};
+ const seen=new Set(),dup=[];
+ for(const name of names){
+  const key=compareResidentName(name);
+  if(seen.has(key))dup.push(name);
+  seen.add(key);
+ }
+ if(dup.length)return {names,error:t("Duplicate names in your list: {names}",{names:dup.join(", ")})};
+ const existingNames=new Set(existing.map(p=>compareResidentName(p.name)));
+ const duplicates=names.filter(n=>existingNames.has(compareResidentName(n)));
+ if(duplicates.length)return {names,error:t("Already in your apartment: {names}",{names:duplicates.join(", ")})};
+ const remaining=Math.max(0,70-existing.length);
+ if(names.length>remaining)return {names,error:t("Only {remaining} slots are available (maximum 70 residents).",{remaining})};
+ return {names,error:""};
+}
+function bulkValidation(){
+ return parseBulkNames($("#bulk-member-names").value);
+}
+function showBulkError(message){
+ const target=$("#bulk-member-error");
+ target.textContent=message?t(message):"";
+ show("#bulk-member-error",!!message);
+}
+function renderBulkPreview(){
+ const parsed=bulkValidation();
+ label("#bulk-member-preview",parsed.names.length&&!parsed.error?t("{count} names ready to add",{count:parsed.names.length}):"");
+ showBulkError(parsed.error);
+ $("#bulk-member-submit").disabled=bulkDialogBusy||!!parsed.error;
+}
+function openBulkModal(){
+ if(!state.owner||!state.apt)return;
+ bulkDialogApartment=state.apt.id;
+ bulkDialogOrigin=document.activeElement;
+ $("#bulk-member-names").value="";
+ bulkDialogBusy=false;
+ renderBulkPreview();
+ const dialog=$("#bulk-member-dialog");
+ if(!dialog.open)dialog.showModal();
+ $("#bulk-member-names").focus();
+}
+function closeBulkModal(){
+ if(bulkDialogBusy)return;
+ if($("#bulk-member-dialog").open)$("#bulk-member-dialog").close();
+}
+async function submitBulkMembers(event){
+ event.preventDefault();
+ if(bulkDialogBusy||!state.owner||state.apt?.id!==bulkDialogApartment)return;
+ const result=bulkValidation();
+ if(result.error){renderBulkPreview();return}
+ bulkDialogBusy=true;renderBulkPreview();
+ try{
+  const maxOrder=state.residents.reduce((n,r)=>Math.max(n,Number(r.sort_order)||0),-1);
+  const payload=result.names.map((name,i)=>({
+   apartment_id:bulkDialogApartment,name,mode:"custom",custom_days:4,sort_order:maxOrder+i+1
+  }));
+  const {data,error}=await db.from("apartment_residents").insert(payload)
+   .select("id,apartment_id,user_id,name,sort_order,mode,custom_days");
+  if(error)throw error;
+  if(state.apt?.id===bulkDialogApartment){
+   state.residents.push(...(data||[]));
+   state.residents.sort((a,b)=>a.sort_order-b.sort_order);
+   renderResidentTable();
+  }
+  bulkDialogBusy=false;
+  closeBulkModal();
+  toast(t("Added {count} residents.",{count:result.names.length}));
+ }catch(err){
+  console.error("Batch resident insertion failed",err);
+  showBulkError("Couldn't add residents. No names were added.");
+ }finally{
+  bulkDialogBusy=false;
+  renderBulkPreview();
+ }
+}
+
 function avatarInitials(name){
  const tokens=(name||"").trim().split(/\s+/).filter(Boolean);
  return (tokens.length>=2?tokens[0][0]+tokens[tokens.length-1][0]:(tokens[0]||"?").slice(0,2)).toLocaleUpperCase("vi");
@@ -711,30 +801,61 @@ async function saveBill(){
   if(!confirmed)return;
  }
  const period=billingPeriod(),items=split().map(x=>({resident_id:x.id,days:x.days,share:x.share,mode:x.mode,custom_days:x.custom_days}));
- const button=$("#save");button.disabled=true;
+ const button=$("#save");
+ state.billSaving=true;button.disabled=true;
+ const apartmentId=state.apt.id;
+ let saved=false;
  try{
   const {error}=await db.rpc("save_apartment_bill",{
-   p_apartment_id:state.apt.id,p_type:state.draft.type,p_month:state.draft.month,
+   p_apartment_id:apartmentId,p_type:state.draft.type,p_month:state.draft.month,
    p_amount:Number(state.draft.amount),p_days:period.days,p_items:items,
    p_start:period.start,p_end:period.end
   });
   if(error)throw error;
-  toast("Bill saved successfully.");
-  await loadApartment(state.apt.id);
- }catch(err){errorNotice("Could not save bill.",err)}
- finally{renderResult()}
+  saved=true;
+  // Bill allocations are snapshots; reset only the current roster after saving.
+  const reset=await db.from("apartment_residents")
+   .update({mode:"custom",custom_days:4}).eq("apartment_id",apartmentId);
+  if(reset.error)errorNotice("Bill saved, but default days could not be restored.",reset.error);
+  else toast("Bill saved. Resident days reset to 4 days.");
+  if(state.apt?.id===apartmentId){
+   if(!reset.error)state.residents.forEach(p=>{p.mode="custom";p.custom_days=4});
+   await loadApartment(apartmentId,{resetDraft:true});
+  }
+ }catch(err){errorNotice(saved?"Unable to refresh. Check your connection.":"Could not save bill.",err)}
+ finally{state.billSaving=false;renderResult()}
 }
 async function clipboard(data,message){
  try{await navigator.clipboard.writeText(data);toast(message||"Copied.")}catch{toast("Your browser cannot copy to clipboard.")}
 }
-function copyBreakdown(){
- const parts=split();if(!parts)return;
- const lines=[typeName(state.draft.type)+" — "+state.draft.month,
+function buildBreakdown(){
+ const parts=split();
+ if(!parts||!state.apt)return "";
+ return [typeName(state.draft.type)+" — "+state.draft.month,
   t("Apartment")+": "+state.apt.name,t("Total")+": "+money(state.draft.amount),
   t("Period")+": "+t("{count} days",{count:billingPeriod().days}),"",
   ...parts.map((p,i)=>(i+1)+". "+p.name+" · "+t("{count} days",{count:p.days})+": "+money(p.share)),
-  "",t("TOTAL")+": "+money(parts.reduce((s,p)=>s+p.share,0))];
- clipboard(lines.join("\n"),"Breakdown copied.");
+  "",t("TOTAL")+": "+money(parts.reduce((s,p)=>s+p.share,0))].join("\n");
+}
+function copyBreakdown(){
+ const text=buildBreakdown();
+ if(text)clipboard(text,"Breakdown copied.");
+}
+async function shareBreakdown(){
+ const summary=buildBreakdown();if(!summary)return;
+ if(typeof navigator.share==="function"){
+  try{
+   await navigator.share({title:"Ở Ghép — "+typeName(state.draft.type),text:summary});
+   toast("Breakdown shared.");return;
+  }catch(err){
+   if(err?.name==="AbortError")return;
+   console.warn("Web share failed, falling back to clipboard",err);
+  }
+ }
+ try{
+  await navigator.clipboard.writeText(summary);
+  toast("Share unavailable. Breakdown copied instead.");
+ }catch(err){errorNotice("Sharing failed. Please try again.",err)}
 }
 function refreshLogin(){
  const remain=Math.max(0,Math.ceil((state.loginUntil-Date.now())/1000));
@@ -785,6 +906,7 @@ onLanguageChange(()=>{
  label("#apartment-role",t(state.owner?"Owner":"Member"));
  renderResidentTable();
  if($("#member-form-dialog").open)updateMemberDialogLabels();
+ if($("#bulk-member-dialog").open)renderBulkPreview();
  renderHistory();
  renderResult();
 });
@@ -800,6 +922,22 @@ $("#manage-apartments").addEventListener("click",showGate);
 $("#apartment-select").addEventListener("change",e=>loadApartment(e.target.value));
 $("#copy-code").addEventListener("click",()=>state.apt&&clipboard(state.apt.code,"Apartment code copied."));
 $("#open-member-modal").addEventListener("click",()=>openMemberDialog());
+$("#open-bulk-modal").addEventListener("click",openBulkModal);
+$("#bulk-member-names").addEventListener("input",renderBulkPreview);
+$("#bulk-member-form").addEventListener("submit",submitBulkMembers);
+$("#bulk-dialog-close").addEventListener("click",closeBulkModal);
+$("#bulk-dialog-cancel").addEventListener("click",closeBulkModal);
+$("#bulk-member-dialog").addEventListener("cancel",event=>{if(bulkDialogBusy)event.preventDefault()});
+$("#bulk-member-dialog").addEventListener("click",event=>{
+ const dialog=$("#bulk-member-dialog");if(event.target!==dialog||bulkDialogBusy)return;
+ const rect=dialog.getBoundingClientRect();
+ if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeBulkModal();
+});
+$("#bulk-member-dialog").addEventListener("close",()=>{
+ if(bulkDialogOrigin?.isConnected)bulkDialogOrigin.focus({preventScroll:true});
+ bulkDialogOrigin=null;
+});
+
 $("#member-dialog-cancel").addEventListener("click",closeMemberDialog);
 $("#member-dialog-close").addEventListener("click",closeMemberDialog);
 $("#member-dialog-form").addEventListener("submit",event=>{event.preventDefault();memberFormAction(true)});
@@ -835,6 +973,7 @@ for(const input of ["#period-start","#period-end"]){
  });
 }
 $("#copy").addEventListener("click",copyBreakdown);
+$("#share").addEventListener("click",shareBreakdown);
 $("#save").addEventListener("click",saveBill);
 db.auth.onAuthStateChange((event,session)=>{
  if(event==="SIGNED_OUT"){signOutView();return}
