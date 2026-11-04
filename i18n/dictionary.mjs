@@ -1,5 +1,17 @@
 /* Ở Ghép English / Vietnamese interface translations. User-owned content is never translated. */
 export const vi = {
+  "Manage bills and their charges for the selected month.": "Quản lý các khoản phí của tháng đã chọn.",
+  "Total amount": "Tổng tiền",
+  "Charges": "Các khoản phí",
+  "Payment status by resident": "Trạng thái thanh toán từng thành viên",
+  "More options": "Thêm thao tác",
+  "Billing actions": "Thao tác hóa đơn",
+  "Save changes": "Lưu thay đổi",
+  "Enter an amount greater than zero.": "Vui lòng nhập số tiền lớn hơn 0.",
+  "Discard unsaved bill changes?": "Bỏ thay đổi hóa đơn chưa lưu?",
+  "Switching types will discard changes in this open form.": "Chuyển loại hóa đơn sẽ bỏ các thay đổi đang nhập trong form này.",
+  "Switch bill type": "Chuyển loại",
+  "Continue editing": "Tiếp tục nhập",
   "Default": "Mặc định",
   "Use the days configured above": "Sử dụng số ngày đã thiết lập",
   "Automatically uses section A. Changes to resident days recalculate this bill.": "Tự động lấy số ngày ở mục A. Khi thay đổi số ngày, kết quả sẽ được tính lại.",
